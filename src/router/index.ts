@@ -28,6 +28,11 @@ const routes = [
         name: 'PublishedWorkflows',
         component: () => import('../components/workflow/PublishedWorkflows.vue'),
       },
+      {
+        path: 'datasources',
+        name: 'Datasources',
+        component: () => import('../components/datasource/DatasourceManager.vue'),
+      },
     ],
   },
 ];
@@ -37,15 +42,13 @@ const router = createRouter({
   routes,
 });
 
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, from) => {
   const authStore = useAuthStore();
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next('/login');
+    return '/login';
   } else if (to.path === '/login' && authStore.isAuthenticated) {
-    next('/');
-  } else {
-    next();
+    return '/';
   }
 });
 

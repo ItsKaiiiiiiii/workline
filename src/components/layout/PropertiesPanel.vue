@@ -44,38 +44,63 @@
           <Sliders class="w-4 h-4" />
           <span>参数配置</span>
         </div>
+        <div v-if="isDatabaseNode" class="datasource-selector-section">
+          <div class="form-item">
+            <label class="form-label">数据源</label>
+            <select
+              :value="selectedNode.params.datasourceId"
+              @change="updateParam('datasourceId', ($event.target as HTMLSelectElement).value)"
+              class="form-input"
+            >
+              <option value="">选择数据源...</option>
+              <option v-for="ds in datasources" :key="ds.id" :value="ds.id">
+                {{ ds.name }} ({{ getDatasourceLabel(ds.type) }})
+              </option>
+            </select>
+          </div>
+          <div v-if="selectedNode.params.datasourceId" class="selected-datasource-info">
+            <div class="info-item">
+              <span class="info-label">已选择:</span>
+              <span class="info-value">
+                {{ datasources.find(d => d.id === selectedNode.params.datasourceId)?.name }}
+              </span>
+            </div>
+          </div>
+        </div>
         <div class="params-list">
           <div v-for="(value, key) in selectedNode.params" :key="key" class="form-item">
-            <label class="form-label capitalize">{{ key }}</label>
-            <input
-              v-if="typeof value === 'string'"
-              :value="value"
-              @input="updateParam(key, ($event.target as HTMLInputElement).value)"
-              class="form-input"
-            />
-            <input
-              v-else-if="typeof value === 'number'"
-              type="number"
-              :value="value"
-              @input="updateParam(key, Number(($event.target as HTMLInputElement).value))"
-              class="form-input"
-            />
-            <label v-else-if="typeof value === 'boolean'" class="checkbox-label">
+            <template v-if="!(isDatabaseNode && key === 'datasourceId')">
+              <label class="form-label capitalize">{{ key }}</label>
               <input
-                type="checkbox"
-                :checked="value"
-                @change="updateParam(key, ($event.target as HTMLInputElement).checked)"
-                class="form-checkbox"
+                v-if="typeof value === 'string'"
+                :value="value"
+                @input="updateParam(key, ($event.target as HTMLInputElement).value)"
+                class="form-input"
               />
-              <span>启用</span>
-            </label>
-            <textarea
-              v-else
-              :value="JSON.stringify(value, null, 2)"
-              @input="updateParamFromJson(key, ($event.target as HTMLTextAreaElement).value)"
-              class="form-textarea font-mono"
-              rows="3"
-            />
+              <input
+                v-else-if="typeof value === 'number'"
+                type="number"
+                :value="value"
+                @input="updateParam(key, Number(($event.target as HTMLInputElement).value))"
+                class="form-input"
+              />
+              <label v-else-if="typeof value === 'boolean'" class="checkbox-label">
+                <input
+                  type="checkbox"
+                  :checked="value"
+                  @change="updateParam(key, ($event.target as HTMLInputElement).checked)"
+                  class="form-checkbox"
+                />
+                <span>启用</span>
+              </label>
+              <textarea
+                v-else
+                :value="JSON.stringify(value, null, 2)"
+                @input="updateParamFromJson(key, ($event.target as HTMLTextAreaElement).value)"
+                class="form-textarea font-mono"
+                rows="3"
+              />
+            </template>
           </div>
         </div>
       </div>
@@ -111,12 +136,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { Settings, Sliders, Link, MousePointerClick } from 'lucide-vue-next';
 import * as Icons from 'lucide-vue-next';
 import { useWorkflowStore } from '../../stores/workflow';
+import { useDatasourceStore } from '../../stores/datasource';
+import { DATASOURCE_LIBRARY } from '../../config/datasourceLibrary';
+import type { DatasourceType } from '../../types/datasource';
 
 const store = useWorkflowStore();
+const datasourceStore = useDatasourceStore();
 
 const localLabel = ref('');
 const localDescription = ref('');
@@ -129,11 +158,24 @@ watch(() => store.selectedNode, (node) => {
 }, { immediate: true });
 
 const selectedNode = computed(() => store.selectedNode);
+const datasources = computed(() => datasourceStore.organizationDatasources);
 
 const iconComponent = computed(() => {
   if (!selectedNode.value) return Icons.Circle;
   return (Icons as any)[selectedNode.value.icon] || Icons.Circle;
 });
+
+const isDatabaseNode = computed(() => selectedNode.value?.type === 'database');
+
+function getDatasourceLabel(type: DatasourceType): string {
+  const config = DATASOURCE_LIBRARY.find((c) => c.type === type);
+  return config?.label || type;
+}
+
+function getDatasourceColor(type: DatasourceType): string {
+  const config = DATASOURCE_LIBRARY.find((c) => c.type === type);
+  return config?.color || '#6b7280';
+}
 
 function updateLabel() {
   if (selectedNode.value) {
@@ -166,6 +208,10 @@ function updateParamFromJson(key: string, jsonStr: string) {
     // 忽略无效的JSON
   }
 }
+
+onMounted(() => {
+  datasourceStore.fetchDatasources();
+});
 </script>
 
 <style scoped>
@@ -306,6 +352,37 @@ function updateParamFromJson(key: string, jsonStr: string) {
   width: 16px;
   height: 16px;
   accent-color: #3b82f6;
+}
+
+.datasource-selector-section {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.selected-datasource-info {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: #f0fdf4;
+  border-radius: 8px;
+  border: 1px solid #86efac;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.info-label {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.info-value {
+  color: #166534;
+  font-weight: 600;
 }
 
 .params-list {

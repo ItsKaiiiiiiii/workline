@@ -63,7 +63,7 @@ export const NODE_LIBRARY: NodeConfig[] = [
     color: '#f97316',
     bgColor: '#fff7ed',
     description: '数据库操作',
-    defaultParams: { query: '' },
+    defaultParams: { datasourceId: '', query: '' },
     inputs: ['input'],
     outputs: ['output'],
   },

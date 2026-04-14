@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m 'feat: 添加登录界面、组织管理和工作流列表功能:*)",
+      "Bash(git push:*)"
     ]
   }
 }

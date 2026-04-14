@@ -3,14 +3,12 @@
     class="node-item"
     draggable="true"
     @dragstart="onDragStart"
+    :title="node.description"
   >
     <div class="node-icon" :style="{ backgroundColor: node.bgColor, color: node.color }">
       <component :is="iconComponent" class="w-4 h-4" />
     </div>
-    <div class="node-info">
-      <div class="node-label">{{ node.label }}</div>
-      <div class="node-desc">{{ node.description }}</div>
-    </div>
+    <div class="node-label">{{ node.label }}</div>
   </div>
 </template>
 
@@ -41,52 +39,46 @@ function onDragStart(event: DragEvent) {
 <style scoped>
 .node-item {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 12px;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 8px;
   background: #ffffff;
   border: 1px solid #e5e7eb;
-  border-radius: 10px;
+  border-radius: 12px;
   cursor: grab;
   transition: all 0.2s;
+  min-height: 76px;
 }
 
 .node-item:hover {
   border-color: #3b82f6;
   background: #eff6ff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
 }
 
 .node-item:active {
   cursor: grabbing;
+  transform: translateY(0);
 }
 
 .node-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.node-info {
-  flex: 1;
-  min-width: 0;
-}
-
 .node-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: #1f2937;
-}
-
-.node-desc {
-  margin-top: 2px;
   font-size: 12px;
-  color: #6b7280;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-weight: 500;
+  color: #374151;
+  text-align: center;
+  line-height: 1.2;
 }
 </style>

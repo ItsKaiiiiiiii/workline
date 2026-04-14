@@ -1,5 +1,130 @@
-# Vue 3 + TypeScript + Vite
+# Workline - 企业级工作流引擎
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+一个基于 Vue 3 + TypeScript + Vite 构建的现代化企业级工作流编排工具。
 
-Learn more about the recommended Project Setup and IDE Support in the [Vue Docs TypeScript Guide](https://vuejs.org/guide/typescript/overview.html#project-setup).
+## 技术栈
+
+- **框架**: Vue 3 (Composition API)
+- **语言**: TypeScript
+- **构建工具**: Vite
+- **状态管理**: Pinia
+- **路由**: Vue Router
+- **图标**: Lucide Vue Next
+
+## 功能特性
+
+### 1. 登录页面 (`/login`)
+
+**功能介绍**:
+- 用户登录界面
+- 支持多用户登录
+- 美观的渐变设计风格
+
+**样式特点**:
+- 现代渐变背景
+- 卡片式登录表单
+- 平滑的动画效果
+
+### 2. 主布局
+
+**功能介绍**:
+- 左侧侧边栏导航
+- 组织切换器
+- 用户信息展示
+- 统一的页面框架
+
+**样式特点**:
+- 简洁的白色侧边栏
+- 渐变色 Logo
+- 响应式布局设计
+
+### 3. 创建工作流 (`/workflows/create`)
+
+**功能介绍**:
+- 可视化画布编辑器
+- 拖拽式节点放置
+- 节点连线管理
+- 组件属性配置
+
+**样式特点**:
+- 网格背景画布
+- 彩色节点区分
+- 流畅的拖拽交互
+
+### 4. 已发布工作流 (`/workflows/published`)
+
+**功能介绍**:
+- 已发布工作流列表
+- 运行状态展示
+- 执行历史查看
+- 启动/停止操作
+
+**样式特点**:
+- 卡片网格布局
+- 状态徽章标识
+- 时间线展示执行历史
+
+### 5. 数据源管理 (`/datasources`)
+
+**功能介绍**:
+- 数据源类型选择（MySQL、PostgreSQL、MongoDB、Redis、Elasticsearch、HTTP API、Oracle、SQL Server）
+- 数据源配置表单
+- 连接测试功能
+- 数据源编辑/删除
+
+**样式特点**:
+- 彩色类型选择器
+- 卡片式列表展示
+- 模态框表单设计
+
+## 组件库
+
+### 开始类节点
+- **触发器**: 工作流起始点
+
+### 处理类节点
+- **操作**: 执行特定操作
+- **条件判断**: 根据条件分支
+- **数据转换**: 转换数据格式
+- **API请求**: 调用外部API
+- **数据库**: 数据库操作（支持选择已保存的数据源）
+
+### 结束类节点
+- **通知**: 发送通知消息
+- **输出**: 工作流结束
+
+## 快速开始
+
+```bash
+# 安装依赖
+npm install
+
+# 启动开发服务器
+npm run dev
+
+# 构建生产版本
+npm run build
+```
+
+## 项目结构
+
+```
+src/
+├── components/
+│   ├── auth/           # 认证相关组件
+│   ├── canvas/         # 画布编辑器组件
+│   ├── datasource/     # 数据源管理组件
+│   ├── layout/        # 布局组件
+│   ├── node/          # 节点组件
+│   └── workflow/      # 工作流页面组件
+├── config/            # 配置文件
+├── router/            # 路由配置
+├── stores/            # Pinia 状态管理
+├── types/             # TypeScript 类型定义
+├── App.vue
+└── main.ts
+```
+
+## License
+
+MIT

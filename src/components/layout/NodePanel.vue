@@ -10,7 +10,7 @@
     <div class="panel-content">
       <div class="node-category">
         <div class="category-title">开始</div>
-        <div class="node-list">
+        <div class="node-grid">
           <NodeItem
             v-for="node in triggerNodes"
             :key="node.type"
@@ -21,7 +21,7 @@
       </div>
       <div class="node-category">
         <div class="category-title">处理</div>
-        <div class="node-list">
+        <div class="node-grid">
           <NodeItem
             v-for="node in processNodes"
             :key="node.type"
@@ -32,7 +32,7 @@
       </div>
       <div class="node-category">
         <div class="category-title">结束</div>
-        <div class="node-list">
+        <div class="node-grid">
           <NodeItem
             v-for="node in endNodes"
             :key="node.type"
@@ -77,7 +77,7 @@ function handleDragStart(event: DragEvent, node: NodeConfig) {
 
 <style scoped>
 .node-panel {
-  width: 280px;
+  width: 260px;
   height: 100%;
   background: #ffffff;
   border-right: 1px solid #e5e7eb;
@@ -86,7 +86,7 @@ function handleDragStart(event: DragEvent, node: NodeConfig) {
 }
 
 .panel-header {
-  padding: 16px;
+  padding: 14px 16px;
   border-bottom: 1px solid #e5e7eb;
 }
 
@@ -94,25 +94,29 @@ function handleDragStart(event: DragEvent, node: NodeConfig) {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: #1f2937;
 }
 
 .panel-desc {
-  margin-top: 4px;
-  font-size: 13px;
+  margin-top: 2px;
+  font-size: 12px;
   color: #6b7280;
 }
 
 .panel-content {
   flex: 1;
   overflow-y: auto;
-  padding: 16px;
+  padding: 12px 14px;
 }
 
 .node-category {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
+}
+
+.node-category:last-child {
+  margin-bottom: 0;
 }
 
 .category-title {
@@ -121,12 +125,13 @@ function handleDragStart(event: DragEvent, node: NodeConfig) {
   color: #9ca3af;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
+  padding-left: 2px;
 }
 
-.node-list {
-  display: flex;
-  flex-direction: column;
+.node-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
 }
 </style>

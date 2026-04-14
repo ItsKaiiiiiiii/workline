@@ -35,6 +35,14 @@
           <ListChecks class="w-5 h-5" />
           <span>已发布工作流</span>
         </router-link>
+        <router-link
+          to="/datasources"
+          class="nav-item"
+          :class="{ active: $route.path === '/datasources' }"
+        >
+          <Database class="w-5 h-5" />
+          <span>数据源管理</span>
+        </router-link>
       </nav>
 
       <div class="sidebar-footer">
@@ -146,6 +154,7 @@ import {
   X,
   Plus,
   Check,
+  Database,
 } from 'lucide-vue-next';
 import { useAuthStore } from '../../stores/auth';
 
