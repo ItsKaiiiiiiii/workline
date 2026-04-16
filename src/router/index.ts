@@ -9,6 +9,18 @@ const routes = [
     meta: { requiresAuth: false },
   },
   {
+    path: '/register',
+    name: 'Register',
+    component: () => import('../components/auth/Register.vue'),
+    meta: { requiresAuth: false },
+  },
+  {
+    path: '/create-organization',
+    name: 'CreateOrganization',
+    component: () => import('../components/auth/CreateOrganization.vue'),
+    meta: { requiresAuth: true, skipOrgCheck: true },
+  },
+  {
     path: '/',
     name: 'Home',
     component: () => import('../components/layout/MainLayout.vue'),
@@ -45,10 +57,25 @@ const router = createRouter({
 router.beforeEach((to, from) => {
   const authStore = useAuthStore();
 
+  // 检查是否需要认证
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     return '/login';
-  } else if (to.path === '/login' && authStore.isAuthenticated) {
+  }
+
+  // 已登录用户访问登录页或注册页，重定向到首页
+  if ((to.path === '/login' || to.path === '/register') && authStore.isAuthenticated) {
     return '/';
+  }
+
+  // 检查是否需要创建组织
+  if (
+    to.meta.requiresAuth &&
+    !to.meta.skipOrgCheck &&
+    authStore.isAuthenticated &&
+    authStore.needsOrganization &&
+    authStore.organizations.length === 0
+  ) {
+    return '/create-organization';
   }
 });
 

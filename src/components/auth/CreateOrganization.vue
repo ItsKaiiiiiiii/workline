@@ -1,79 +1,66 @@
 <template>
-  <div class="login-container">
-    <div class="login-card">
-      <div class="login-header">
+  <div class="create-org-container">
+    <div class="create-org-card">
+      <div class="create-org-header">
         <div class="logo">
           <div class="logo-icon">
-            <Workflow class="w-8 h-8 text-white" />
+            <Building class="w-8 h-8 text-white" />
           </div>
-          <h1 class="logo-text">Workline</h1>
+          <h1 class="logo-text">创建组织</h1>
         </div>
-        <p class="login-subtitle">企业级工作流自动化平台</p>
+        <p class="create-org-subtitle">开始使用 Workline，首先创建一个组织</p>
       </div>
 
-      <form class="login-form" @submit.prevent="handleLogin">
+      <form class="create-org-form" @submit.prevent="handleCreate">
         <div class="form-group">
-          <label class="form-label">用户名</label>
+          <label class="form-label">组织名称</label>
           <div class="input-wrapper">
-            <User class="input-icon w-5 h-5" />
+            <Building class="input-icon w-5 h-5" />
             <input
-              v-model="username"
+              v-model="name"
               type="text"
               class="form-input"
-              placeholder="请输入用户名"
+              placeholder="请输入组织名称"
               required
             />
           </div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">密码</label>
+          <label class="form-label">组织描述（可选）</label>
           <div class="input-wrapper">
-            <Lock class="input-icon w-5 h-5" />
-            <input
-              v-model="password"
-              :type="showPassword ? 'text' : 'password'"
-              class="form-input"
-              placeholder="请输入密码"
-              required
+            <FileText class="input-icon w-5 h-5" />
+            <textarea
+              v-model="description"
+              class="form-textarea"
+              rows="3"
+              placeholder="请输入组织描述"
             />
-            <button
-              type="button"
-              class="password-toggle"
-              @click="showPassword = !showPassword"
-            >
-              <component
-                :is="showPassword ? EyeOff : Eye"
-                class="w-5 h-5"
-              />
-            </button>
           </div>
         </div>
 
         <button
           type="submit"
-          class="login-button"
-          :disabled="isLoading"
+          class="create-org-button"
+          :disabled="isLoading || !name"
         >
           <template v-if="isLoading">
             <Loader2 class="w-5 h-5 animate-spin" />
-            <span>登录中...</span>
+            <span>创建中...</span>
           </template>
           <template v-else>
-            <span>登录</span>
+            <span>创建组织</span>
           </template>
         </button>
       </form>
 
-      <p v-if="error" class="error-message">{{ error }}</p>
-
-      <div class="login-footer">
-        <p class="footer-text">还没有账号？</p>
-        <button class="footer-link" @click="goToRegister">立即注册</button>
+      <div class="create-org-footer">
+        <p class="footer-text">稍后创建？</p>
+        <button class="footer-link" @click="handleSkip">跳过此步</button>
       </div>
     </div>
 
-    <div class="login-decoration">
+    <div class="create-org-decoration">
       <div class="decoration-circle circle-1"></div>
       <div class="decoration-circle circle-2"></div>
       <div class="decoration-circle circle-3"></div>
@@ -84,51 +71,46 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { Workflow, User, Lock, Eye, EyeOff, Loader2 } from 'lucide-vue-next';
+import { Building, FileText, Loader2 } from 'lucide-vue-next';
 import { useAuthStore } from '../../stores/auth';
 
 const authStore = useAuthStore();
 const router = useRouter();
 
-const username = ref('');
-const password = ref('');
-const showPassword = ref(false);
+const name = ref('');
+const description = ref('');
 const isLoading = ref(false);
-const error = ref('');
 
-async function handleLogin() {
+async function handleCreate() {
+  if (!name.value) return;
+
   isLoading.value = true;
-  error.value = '';
 
   try {
-    const success = await authStore.login({
-      username: username.value,
-      password: password.value,
+    const org = await authStore.createOrganization({
+      name: name.value,
+      description: description.value || undefined,
     });
-    if (success) {
-      // 检查是否需要创建组织
-      if (authStore.needsOrganization && authStore.organizations.length === 0) {
-        router.push('/create-organization');
-      } else {
-        router.push('/');
-      }
-    } else {
-      error.value = '用户名或密码错误';
+
+    if (org) {
+      router.push('/');
     }
   } catch (err) {
-    error.value = '登录失败，请稍后重试';
+    console.error('Failed to create organization:', err);
   } finally {
     isLoading.value = false;
   }
 }
 
-function goToRegister() {
-  router.push('/register');
+function handleSkip() {
+  // 跳过组织创建，但之后可能还需要检查
+  authStore.needsOrganization = false;
+  router.push('/');
 }
 </script>
 
 <style scoped>
-.login-container {
+.create-org-container {
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -138,7 +120,7 @@ function goToRegister() {
   overflow: hidden;
 }
 
-.login-card {
+.create-org-card {
   width: 100%;
   max-width: 420px;
   padding: 48px 40px;
@@ -148,7 +130,7 @@ function goToRegister() {
   z-index: 10;
 }
 
-.login-header {
+.create-org-header {
   text-align: center;
   margin-bottom: 40px;
 }
@@ -172,19 +154,20 @@ function goToRegister() {
 }
 
 .logo-text {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
   color: #1f2937;
   margin: 0;
 }
 
-.login-subtitle {
+.create-org-subtitle {
   font-size: 14px;
   color: #6b7280;
   margin: 0;
+  line-height: 1.5;
 }
 
-.login-form {
+.create-org-form {
   display: flex;
   flex-direction: column;
   gap: 24px;
@@ -205,12 +188,13 @@ function goToRegister() {
 .input-wrapper {
   position: relative;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .input-icon {
   position: absolute;
   left: 14px;
+  top: 12px;
   color: #9ca3af;
   pointer-events: none;
 }
@@ -233,25 +217,26 @@ function goToRegister() {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-.password-toggle {
-  position: absolute;
-  right: 14px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  color: #9ca3af;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.2s;
+.form-textarea {
+  width: 100%;
+  padding: 12px 14px 12px 44px;
+  font-size: 15px;
+  color: #1f2937;
+  background: #f9fafb;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  outline: none;
+  resize: none;
+  transition: all 0.2s;
 }
 
-.password-toggle:hover {
-  color: #6b7280;
+.form-textarea:focus {
+  background: #ffffff;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-.login-button {
+.create-org-button {
   width: 100%;
   padding: 14px;
   font-size: 16px;
@@ -268,28 +253,21 @@ function goToRegister() {
   transition: all 0.2s;
 }
 
-.login-button:hover:not(:disabled) {
+.create-org-button:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.4);
 }
 
-.login-button:active:not(:disabled) {
+.create-org-button:active:not(:disabled) {
   transform: translateY(0);
 }
 
-.login-button:disabled {
+.create-org-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.error-message {
-  color: #ef4444;
-  font-size: 14px;
-  text-align: center;
-  margin: 16px 0 0 0;
-}
-
-.login-footer {
+.create-org-footer {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -318,7 +296,7 @@ function goToRegister() {
   color: #2563eb;
 }
 
-.login-decoration {
+.create-org-decoration {
   position: absolute;
   top: 0;
   left: 0;

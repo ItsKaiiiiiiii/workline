@@ -1,17 +1,17 @@
 <template>
-  <div class="login-container">
-    <div class="login-card">
-      <div class="login-header">
+  <div class="register-container">
+    <div class="register-card">
+      <div class="register-header">
         <div class="logo">
           <div class="logo-icon">
             <Workflow class="w-8 h-8 text-white" />
           </div>
           <h1 class="logo-text">Workline</h1>
         </div>
-        <p class="login-subtitle">企业级工作流自动化平台</p>
+        <p class="register-subtitle">创建您的账号</p>
       </div>
 
-      <form class="login-form" @submit.prevent="handleLogin">
+      <form class="register-form" @submit.prevent="handleRegister">
         <div class="form-group">
           <label class="form-label">用户名</label>
           <div class="input-wrapper">
@@ -21,6 +21,33 @@
               type="text"
               class="form-input"
               placeholder="请输入用户名"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">昵称（可选）</label>
+          <div class="input-wrapper">
+            <User class="input-icon w-5 h-5" />
+            <input
+              v-model="nickname"
+              type="text"
+              class="form-input"
+              placeholder="请输入昵称"
+            />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">邮箱</label>
+          <div class="input-wrapper">
+            <Mail class="input-icon w-5 h-5" />
+            <input
+              v-model="email"
+              type="email"
+              class="form-input"
+              placeholder="请输入邮箱"
               required
             />
           </div>
@@ -50,30 +77,53 @@
           </div>
         </div>
 
+        <div class="form-group">
+          <label class="form-label">确认密码</label>
+          <div class="input-wrapper">
+            <Lock class="input-icon w-5 h-5" />
+            <input
+              v-model="confirmPassword"
+              :type="showConfirmPassword ? 'text' : 'password'"
+              class="form-input"
+              placeholder="请再次输入密码"
+              required
+            />
+            <button
+              type="button"
+              class="password-toggle"
+              @click="showConfirmPassword = !showConfirmPassword"
+            >
+              <component
+                :is="showConfirmPassword ? EyeOff : Eye"
+                class="w-5 h-5"
+              />
+            </button>
+          </div>
+          <p v-if="passwordMismatch" class="error-text">两次密码输入不一致</p>
+        </div>
+
         <button
           type="submit"
-          class="login-button"
-          :disabled="isLoading"
+          class="register-button"
+          :disabled="isLoading || passwordMismatch"
         >
           <template v-if="isLoading">
             <Loader2 class="w-5 h-5 animate-spin" />
-            <span>登录中...</span>
+            <span>注册中...</span>
           </template>
           <template v-else>
-            <span>登录</span>
+            <span>注册</span>
           </template>
         </button>
       </form>
 
-      <p v-if="error" class="error-message">{{ error }}</p>
-
-      <div class="login-footer">
-        <p class="footer-text">还没有账号？</p>
-        <button class="footer-link" @click="goToRegister">立即注册</button>
+      <div class="register-footer">
+        <p class="footer-text">已有账号？</p>
+        <button class="footer-link" @click="goToLogin">立即登录</button>
       </div>
     </div>
 
-    <div class="login-decoration">
+    <div class="register-decoration">
       <div class="decoration-circle circle-1"></div>
       <div class="decoration-circle circle-2"></div>
       <div class="decoration-circle circle-3"></div>
@@ -82,53 +132,62 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { Workflow, User, Lock, Eye, EyeOff, Loader2 } from 'lucide-vue-next';
+import { Workflow, User, Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-vue-next';
 import { useAuthStore } from '../../stores/auth';
 
 const authStore = useAuthStore();
 const router = useRouter();
 
 const username = ref('');
+const nickname = ref('');
+const email = ref('');
 const password = ref('');
+const confirmPassword = ref('');
 const showPassword = ref(false);
+const showConfirmPassword = ref(false);
 const isLoading = ref(false);
-const error = ref('');
 
-async function handleLogin() {
+const passwordMismatch = computed(() => {
+  return confirmPassword.value && password.value !== confirmPassword.value;
+});
+
+async function handleRegister() {
+  if (passwordMismatch.value) return;
+
   isLoading.value = true;
-  error.value = '';
 
   try {
-    const success = await authStore.login({
+    const success = await authStore.register({
       username: username.value,
+      email: email.value,
       password: password.value,
+      nickname: nickname.value || undefined,
     });
+
     if (success) {
       // 检查是否需要创建组织
-      if (authStore.needsOrganization && authStore.organizations.length === 0) {
+      if (authStore.needsOrganization) {
         router.push('/create-organization');
       } else {
         router.push('/');
       }
-    } else {
-      error.value = '用户名或密码错误';
     }
   } catch (err) {
-    error.value = '登录失败，请稍后重试';
+    console.error('Registration failed:', err);
   } finally {
     isLoading.value = false;
   }
 }
 
-function goToRegister() {
-  router.push('/register');
+function goToLogin() {
+  router.push('/login');
 }
 </script>
 
 <style scoped>
-.login-container {
+.register-container {
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -138,19 +197,21 @@ function goToRegister() {
   overflow: hidden;
 }
 
-.login-card {
+.register-card {
   width: 100%;
   max-width: 420px;
-  padding: 48px 40px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 40px;
   background: #ffffff;
   border-radius: 20px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   z-index: 10;
 }
 
-.login-header {
+.register-header {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 32px;
 }
 
 .logo {
@@ -178,16 +239,16 @@ function goToRegister() {
   margin: 0;
 }
 
-.login-subtitle {
+.register-subtitle {
   font-size: 14px;
   color: #6b7280;
   margin: 0;
 }
 
-.login-form {
+.register-form {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 18px;
 }
 
 .form-group {
@@ -251,7 +312,13 @@ function goToRegister() {
   color: #6b7280;
 }
 
-.login-button {
+.error-text {
+  font-size: 12px;
+  color: #ef4444;
+  margin: 4px 0 0 0;
+}
+
+.register-button {
   width: 100%;
   padding: 14px;
   font-size: 16px;
@@ -266,35 +333,29 @@ function goToRegister() {
   justify-content: center;
   gap: 8px;
   transition: all 0.2s;
+  margin-top: 8px;
 }
 
-.login-button:hover:not(:disabled) {
+.register-button:hover:not(:disabled) {
   transform: translateY(-1px);
   box-shadow: 0 10px 25px -5px rgba(59, 130, 246, 0.4);
 }
 
-.login-button:active:not(:disabled) {
+.register-button:active:not(:disabled) {
   transform: translateY(0);
 }
 
-.login-button:disabled {
+.register-button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.error-message {
-  color: #ef4444;
-  font-size: 14px;
-  text-align: center;
-  margin: 16px 0 0 0;
-}
-
-.login-footer {
+.register-footer {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  margin-top: 32px;
+  margin-top: 24px;
 }
 
 .footer-text {
@@ -318,7 +379,7 @@ function goToRegister() {
   color: #2563eb;
 }
 
-.login-decoration {
+.register-decoration {
   position: absolute;
   top: 0;
   left: 0;

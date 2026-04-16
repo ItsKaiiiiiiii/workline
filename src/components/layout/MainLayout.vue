@@ -46,17 +46,14 @@
       </nav>
 
       <div class="sidebar-footer">
-        <div class="user-info">
+        <button class="user-info-btn" @click="showUserProfile = true">
           <div class="user-avatar">
-            {{ user?.username?.charAt(0).toUpperCase() }}
+            {{ user?.nickname?.charAt(0).toUpperCase() || user?.username?.charAt(0).toUpperCase() || 'U' }}
           </div>
           <div class="user-details">
-            <div class="user-name">{{ user?.username }}</div>
+            <div class="user-name">{{ user?.nickname || user?.username }}</div>
             <div class="user-email">{{ user?.email }}</div>
           </div>
-        </div>
-        <button class="logout-btn" @click="handleLogout">
-          <LogOut class="w-4 h-4" />
         </button>
       </div>
     </aside>
@@ -64,6 +61,11 @@
     <main class="main-content">
       <router-view />
     </main>
+
+    <UserProfile
+      :show="showUserProfile"
+      @close="showUserProfile = false"
+    />
 
     <div v-if="showOrgModal" class="modal-overlay" @click.self="showOrgModal = false">
       <div class="org-modal">
@@ -157,6 +159,7 @@ import {
   Database,
 } from 'lucide-vue-next';
 import { useAuthStore } from '../../stores/auth';
+import UserProfile from '../auth/UserProfile.vue';
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -167,6 +170,7 @@ const currentOrg = computed(() => authStore.currentOrganization);
 
 const showOrgModal = ref(false);
 const showCreateOrgModal = ref(false);
+const showUserProfile = ref(false);
 const newOrgName = ref('');
 const newOrgDesc = ref('');
 
@@ -293,17 +297,24 @@ function handleLogout() {
 .sidebar-footer {
   padding: 16px;
   border-top: 1px solid #e5e7eb;
-  display: flex;
-  align-items: center;
-  gap: 12px;
 }
 
-.user-info {
-  flex: 1;
+.user-info-btn {
+  width: 100%;
   display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 0;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+
+.user-info-btn:hover {
+  background: #f3f4f6;
 }
 
 .user-avatar {
@@ -321,6 +332,7 @@ function handleLogout() {
 }
 
 .user-details {
+  flex: 1;
   min-width: 0;
 }
 
@@ -339,25 +351,6 @@ function handleLogout() {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.logout-btn {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  color: #6b7280;
-  cursor: pointer;
-  border-radius: 8px;
-  transition: all 0.2s;
-}
-
-.logout-btn:hover {
-  background: #f3f4f6;
-  color: #374151;
 }
 
 .main-content {
