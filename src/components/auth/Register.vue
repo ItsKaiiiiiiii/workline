@@ -19,22 +19,23 @@
             <input
               v-model="username"
               type="text"
-              class="form-input"
-              placeholder="请输入用户名"
+              :class="['form-input', { 'input-error': fieldErrors.username }]"
+              placeholder="请输入用户名 (3-50字符)"
               required
             />
           </div>
+          <p v-if="fieldErrors.username" class="error-text">{{ fieldErrors.username }}</p>
         </div>
 
         <div class="form-group">
-          <label class="form-label">昵称（可选）</label>
+          <label class="form-label">真实姓名（可选）</label>
           <div class="input-wrapper">
             <User class="input-icon w-5 h-5" />
             <input
-              v-model="nickname"
+              v-model="realName"
               type="text"
               class="form-input"
-              placeholder="请输入昵称"
+              placeholder="请输入真实姓名"
             />
           </div>
         </div>
@@ -46,9 +47,38 @@
             <input
               v-model="email"
               type="email"
-              class="form-input"
+              :class="['form-input', { 'input-error': fieldErrors.email }]"
               placeholder="请输入邮箱"
               required
+            />
+          </div>
+          <p v-if="fieldErrors.email" class="error-text">{{ fieldErrors.email }}</p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">组织名称</label>
+          <div class="input-wrapper">
+            <Building class="input-icon w-5 h-5" />
+            <input
+              v-model="organizationName"
+              type="text"
+              :class="['form-input', { 'input-error': fieldErrors['organization.name'] }]"
+              placeholder="请输入组织名称"
+              required
+            />
+          </div>
+          <p v-if="fieldErrors['organization.name']" class="error-text">{{ fieldErrors['organization.name'] }}</p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">组织描述（可选）</label>
+          <div class="input-wrapper">
+            <FileText class="input-icon w-5 h-5" />
+            <textarea
+              v-model="organizationDescription"
+              class="form-textarea"
+              placeholder="请输入组织描述"
+              rows="2"
             />
           </div>
         </div>
@@ -60,8 +90,8 @@
             <input
               v-model="password"
               :type="showPassword ? 'text' : 'password'"
-              class="form-input"
-              placeholder="请输入密码"
+              :class="['form-input', { 'input-error': fieldErrors.password }]"
+              placeholder="请输入密码 (6-100字符)"
               required
             />
             <button
@@ -75,6 +105,7 @@
               />
             </button>
           </div>
+          <p v-if="fieldErrors.password" class="error-text">{{ fieldErrors.password }}</p>
         </div>
 
         <div class="form-group">
@@ -102,6 +133,8 @@
           <p v-if="passwordMismatch" class="error-text">两次密码输入不一致</p>
         </div>
 
+        <p v-if="error" class="error-message">{{ error }}</p>
+
         <button
           type="submit"
           class="register-button"
@@ -128,26 +161,41 @@
       <div class="decoration-circle circle-2"></div>
       <div class="decoration-circle circle-3"></div>
     </div>
+
+    <Toast
+      :show="showSuccessToast"
+      :message="successMessage"
+      type="success"
+      @close="showSuccessToast = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { Workflow, User, Mail, Lock, Eye, EyeOff, Loader2 } from 'lucide-vue-next';
+import { Workflow, User, Mail, Lock, Eye, EyeOff, Loader2, Building, FileText } from 'lucide-vue-next';
 import { useAuthStore } from '../../stores/auth';
+import type { ApiError } from '../../utils/api';
+import Toast from '../common/Toast.vue';
 
 const authStore = useAuthStore();
 const router = useRouter();
 
 const username = ref('');
-const nickname = ref('');
+const realName = ref('');
 const email = ref('');
+const organizationName = ref('');
+const organizationDescription = ref('');
 const password = ref('');
 const confirmPassword = ref('');
 const showPassword = ref(false);
 const showConfirmPassword = ref(false);
 const isLoading = ref(false);
+const error = ref('');
+const fieldErrors = ref<Record<string, string>>({});
+const showSuccessToast = ref(false);
+const successMessage = ref('');
 
 const passwordMismatch = computed(() => {
   return confirmPassword.value && password.value !== confirmPassword.value;
@@ -157,25 +205,45 @@ async function handleRegister() {
   if (passwordMismatch.value) return;
 
   isLoading.value = true;
+  error.value = '';
+  fieldErrors.value = {};
 
   try {
-    const success = await authStore.register({
+    const success = await authStore.registerWithOrganization({
       username: username.value,
       email: email.value,
       password: password.value,
-      nickname: nickname.value || undefined,
+      realName: realName.value || undefined,
+      organization: {
+        name: organizationName.value,
+        description: organizationDescription.value || undefined,
+      },
     });
 
     if (success) {
-      // 检查是否需要创建组织
-      if (authStore.needsOrganization) {
-        router.push('/create-organization');
-      } else {
+      successMessage.value = '注册成功';
+      showSuccessToast.value = true;
+      setTimeout(() => {
         router.push('/');
-      }
+      }, 1500);
+    } else {
+      error.value = '注册失败，请稍后重试';
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('Registration failed:', err);
+
+    // 处理 API 错误
+    if (err.name === 'ApiError') {
+      const apiErr = err as ApiError;
+      error.value = apiErr.message;
+
+      // 如果有字段级别的错误，存储起来
+      if (apiErr.data && typeof apiErr.data === 'object') {
+        fieldErrors.value = apiErr.data as Record<string, string>;
+      }
+    } else {
+      error.value = err.message || '注册失败，请稍后重试';
+    }
   } finally {
     isLoading.value = false;
   }
@@ -292,6 +360,41 @@ function goToLogin() {
   background: #ffffff;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-input.input-error {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.form-input.input-error:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.form-textarea {
+  width: 100%;
+  padding: 12px 14px 12px 44px;
+  font-size: 15px;
+  color: #1f2937;
+  background: #f9fafb;
+  border: 2px solid #e5e7eb;
+  border-radius: 10px;
+  outline: none;
+  resize: none;
+  transition: all 0.2s;
+}
+
+.form-textarea:focus {
+  background: #ffffff;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.error-message {
+  color: #ef4444;
+  font-size: 14px;
+  text-align: center;
+  margin: 0 0 8px 0;
 }
 
 .password-toggle {

@@ -16,6 +16,9 @@
             <div class="node-name">{{ selectedNode.label }}</div>
             <div class="node-id">ID: {{ selectedNode.id }}</div>
           </div>
+          <button class="delete-node-btn" @click="handleDeleteNode" title="删除节点">
+            <Trash2 class="w-4 h-4" />
+          </button>
         </div>
       </div>
       <div class="section">
@@ -39,6 +42,38 @@
           />
         </div>
       </div>
+
+      <!-- 输入字段配置 -->
+      <div v-if="currentNodeConfig?.inputFields && currentNodeConfig.inputFields.length > 0" class="section">
+        <div class="section-title">
+          <ArrowDownToLine class="w-4 h-4" />
+          <span>输入字段</span>
+        </div>
+        <div class="fields-list">
+          <div
+            v-for="field in currentNodeConfig.inputFields"
+            :key="field.name"
+            class="field-item"
+          >
+            <div class="field-header">
+              <span class="field-name">{{ field.label }}</span>
+              <span class="field-type">{{ field.type }}</span>
+              <span v-if="field.required" class="field-required">*</span>
+            </div>
+            <p v-if="field.description" class="field-desc">{{ field.description }}</p>
+            <div class="field-mapping">
+              <span class="mapping-label">映射到:</span>
+              <input
+                :value="inputMappings[field.name] || ''"
+                @input="updateInputMapping(field.name, ($event.target as HTMLInputElement).value)"
+                class="form-input mapping-input"
+                :placeholder="`$\{input.${field.name}}`"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="section">
         <div class="section-title">
           <Sliders class="w-4 h-4" />
@@ -58,11 +93,11 @@
               </option>
             </select>
           </div>
-          <div v-if="selectedNode.params.datasourceId" class="selected-datasource-info">
+          <div v-if="selectedNode?.params.datasourceId" class="selected-datasource-info">
             <div class="info-item">
               <span class="info-label">已选择:</span>
               <span class="info-value">
-                {{ datasources.find(d => d.id === selectedNode.params.datasourceId)?.name }}
+                {{ datasources.find(d => d.id === selectedNode?.params.datasourceId)?.name }}
               </span>
             </div>
           </div>
@@ -104,6 +139,47 @@
           </div>
         </div>
       </div>
+
+      <!-- 输出转换代码 -->
+      <div v-if="currentNodeConfig?.outputFields" class="section section-code">
+        <div class="section-title">
+          <Code2 class="w-4 h-4" />
+          <span>输出转换</span>
+        </div>
+        <p class="section-desc">
+          编写自定义代码来处理节点的输出数据，提取你需要的字段供下游组件使用。
+        </p>
+        <CodeEditor
+          v-model="outputTransform"
+          :default-code="currentNodeConfig?.defaultOutputTransform"
+          @validate="onCodeValidate"
+        />
+      </div>
+
+      <!-- 输出字段说明 -->
+      <div v-if="currentNodeConfig?.outputFields && currentNodeConfig.outputFields.length > 0" class="section">
+        <div class="section-title">
+          <ArrowUpFromLine class="w-4 h-4" />
+          <span>输出字段</span>
+        </div>
+        <div class="fields-list">
+          <div
+            v-for="field in currentNodeConfig.outputFields"
+            :key="field.name"
+            class="field-item"
+          >
+            <div class="field-header">
+              <span class="field-name">{{ field.label }}</span>
+              <span class="field-type">{{ field.type }}</span>
+            </div>
+            <p v-if="field.description" class="field-desc">{{ field.description }}</p>
+            <div class="field-usage">
+              <code>$\{output.{{ field.name }}}</code>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="section">
         <div class="section-title">
           <Link class="w-4 h-4" />
@@ -137,28 +213,47 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { Settings, Sliders, Link, MousePointerClick } from 'lucide-vue-next';
+import { Settings, Sliders, Link, MousePointerClick, Code2, ArrowDownToLine, ArrowUpFromLine, Trash2 } from 'lucide-vue-next';
 import * as Icons from 'lucide-vue-next';
 import { useWorkflowStore } from '../../stores/workflow';
 import { useDatasourceStore } from '../../stores/datasource';
 import { DATASOURCE_LIBRARY } from '../../config/datasourceLibrary';
+import { NODE_LIBRARY } from '../../config/nodeLibrary';
 import type { DatasourceType } from '../../types/datasource';
+import type { NodeConfig } from '../../types';
+import CodeEditor from '../node/CodeEditor.vue';
 
 const store = useWorkflowStore();
 const datasourceStore = useDatasourceStore();
 
 const localLabel = ref('');
 const localDescription = ref('');
+const outputTransform = ref('');
+const inputMappings = ref<Record<string, string>>({});
+const codeValid = ref(true);
 
 watch(() => store.selectedNode, (node) => {
   if (node) {
     localLabel.value = node.label;
     localDescription.value = node.description || '';
+    outputTransform.value = node.outputTransform || currentNodeConfig.value?.defaultOutputTransform || '';
+    inputMappings.value = node.inputMappings ? { ...node.inputMappings } : {};
   }
 }, { immediate: true });
 
+watch(outputTransform, (newVal) => {
+  if (selectedNode.value) {
+    store.updateNode(selectedNode.value.id, { outputTransform: newVal });
+  }
+});
+
 const selectedNode = computed(() => store.selectedNode);
 const datasources = computed(() => datasourceStore.organizationDatasources);
+
+const currentNodeConfig = computed<NodeConfig | undefined>(() => {
+  if (!selectedNode.value) return undefined;
+  return NODE_LIBRARY.find(n => n.type === selectedNode.value?.type);
+});
 
 const iconComponent = computed(() => {
   if (!selectedNode.value) return Icons.Circle;
@@ -170,11 +265,6 @@ const isDatabaseNode = computed(() => selectedNode.value?.type === 'database');
 function getDatasourceLabel(type: DatasourceType): string {
   const config = DATASOURCE_LIBRARY.find((c) => c.type === type);
   return config?.label || type;
-}
-
-function getDatasourceColor(type: DatasourceType): string {
-  const config = DATASOURCE_LIBRARY.find((c) => c.type === type);
-  return config?.color || '#6b7280';
 }
 
 function updateLabel() {
@@ -209,14 +299,33 @@ function updateParamFromJson(key: string, jsonStr: string) {
   }
 }
 
+function updateInputMapping(fieldName: string, value: string) {
+  inputMappings.value[fieldName] = value;
+  if (selectedNode.value) {
+    store.updateNode(selectedNode.value.id, {
+      inputMappings: { ...inputMappings.value },
+    });
+  }
+}
+
+function onCodeValidate(isValid: boolean) {
+  codeValid.value = isValid;
+}
+
 onMounted(() => {
   datasourceStore.fetchDatasources();
 });
+
+function handleDeleteNode() {
+  if (selectedNode.value) {
+    store.removeNode(selectedNode.value.id);
+  }
+}
 </script>
 
 <style scoped>
 .properties-panel {
-  width: 300px;
+  width: 320px;
   height: 100%;
   background: #ffffff;
   border-left: 1px solid #e5e7eb;
@@ -248,10 +357,41 @@ onMounted(() => {
   border-bottom: 1px solid #f3f4f6;
 }
 
+.section-code {
+  background: #fafafa;
+}
+
+.section-desc {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 0 0 12px 0;
+  line-height: 1.5;
+}
+
 .node-info {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.delete-node-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #ef4444;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.delete-node-btn:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
 }
 
 .node-icon-wrapper {
@@ -316,6 +456,7 @@ onMounted(() => {
   border-radius: 8px;
   outline: none;
   transition: all 0.2s;
+  box-sizing: border-box;
 }
 
 .form-input:focus {
@@ -334,6 +475,7 @@ onMounted(() => {
   outline: none;
   resize: none;
   transition: all 0.2s;
+  box-sizing: border-box;
 }
 
 .form-textarea:focus {
@@ -352,6 +494,83 @@ onMounted(() => {
   width: 16px;
   height: 16px;
   accent-color: #3b82f6;
+}
+
+.fields-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.field-item {
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+}
+
+.field-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.field-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1f2937;
+}
+
+.field-type {
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #6b7280;
+  background: #e5e7eb;
+  border-radius: 999px;
+}
+
+.field-required {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.field-desc {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0 0 8px 0;
+}
+
+.field-mapping {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mapping-label {
+  font-size: 12px;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+
+.mapping-input {
+  font-size: 13px;
+  font-family: 'Monaco', 'Menlo', monospace;
+  background: #ffffff;
+}
+
+.field-usage {
+  margin-top: 8px;
+}
+
+.field-usage code {
+  padding: 4px 8px;
+  font-size: 12px;
+  font-family: 'Monaco', 'Menlo', monospace;
+  color: #1d4ed8;
+  background: #dbeafe;
+  border-radius: 6px;
 }
 
 .datasource-selector-section {

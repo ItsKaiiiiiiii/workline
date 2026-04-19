@@ -19,11 +19,12 @@
             <input
               v-model="name"
               type="text"
-              class="form-input"
+              :class="['form-input', { 'input-error': fieldErrors.name }]"
               placeholder="请输入组织名称"
               required
             />
           </div>
+          <p v-if="fieldErrors.name" class="error-text">{{ fieldErrors.name }}</p>
         </div>
 
         <div class="form-group">
@@ -32,12 +33,15 @@
             <FileText class="input-icon w-5 h-5" />
             <textarea
               v-model="description"
-              class="form-textarea"
+              :class="['form-textarea', { 'input-error': fieldErrors.description }]"
               rows="3"
               placeholder="请输入组织描述"
             />
           </div>
+          <p v-if="fieldErrors.description" class="error-text">{{ fieldErrors.description }}</p>
         </div>
+
+        <p v-if="error" class="error-message">{{ error }}</p>
 
         <button
           type="submit"
@@ -65,6 +69,13 @@
       <div class="decoration-circle circle-2"></div>
       <div class="decoration-circle circle-3"></div>
     </div>
+
+    <Toast
+      :show="showSuccessToast"
+      :message="successMessage"
+      type="success"
+      @close="showSuccessToast = false"
+    />
   </div>
 </template>
 
@@ -73,6 +84,8 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { Building, FileText, Loader2 } from 'lucide-vue-next';
 import { useAuthStore } from '../../stores/auth';
+import type { ApiError } from '../../utils/api';
+import Toast from '../common/Toast.vue';
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -80,23 +93,44 @@ const router = useRouter();
 const name = ref('');
 const description = ref('');
 const isLoading = ref(false);
+const error = ref('');
+const fieldErrors = ref<Record<string, string>>({});
+const showSuccessToast = ref(false);
+const successMessage = ref('');
 
 async function handleCreate() {
   if (!name.value) return;
 
   isLoading.value = true;
+  error.value = '';
+  fieldErrors.value = {};
 
   try {
-    const org = await authStore.createOrganization({
+    const success = await authStore.createFirstOrganization({
       name: name.value,
       description: description.value || undefined,
     });
 
-    if (org) {
-      router.push('/');
+    if (success) {
+      successMessage.value = '组织创建成功';
+      showSuccessToast.value = true;
+      setTimeout(() => {
+        router.push('/');
+      }, 1500);
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('Failed to create organization:', err);
+
+    if (err.name === 'ApiError') {
+      const apiErr = err as ApiError;
+      error.value = apiErr.message;
+
+      if (apiErr.data && typeof apiErr.data === 'object') {
+        fieldErrors.value = apiErr.data as Record<string, string>;
+      }
+    } else {
+      error.value = err.message || '创建组织失败，请稍后重试';
+    }
   } finally {
     isLoading.value = false;
   }
@@ -217,6 +251,15 @@ function handleSkip() {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
+.form-input.input-error {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.form-input.input-error:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
 .form-textarea {
   width: 100%;
   padding: 12px 14px 12px 44px;
@@ -234,6 +277,28 @@ function handleSkip() {
   background: #ffffff;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-textarea.input-error {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.form-textarea.input-error:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.error-message {
+  color: #ef4444;
+  font-size: 14px;
+  text-align: center;
+  margin: 0 0 8px 0;
+}
+
+.error-text {
+  font-size: 12px;
+  color: #ef4444;
+  margin: 4px 0 0 0;
 }
 
 .create-org-button {

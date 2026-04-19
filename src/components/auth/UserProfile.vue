@@ -96,7 +96,6 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
 import { X, LogOut, Loader2 } from 'lucide-vue-next';
 import { useAuthStore } from '../../stores/auth';
 import type { User } from '../../types/auth';
@@ -110,7 +109,6 @@ const emit = defineEmits<{
 }>();
 
 const authStore = useAuthStore();
-const router = useRouter();
 
 const user = ref<User | null>(null);
 const isLoading = ref(false);
@@ -165,9 +163,8 @@ function handleClose() {
 }
 
 function handleLogout() {
-  authStore.logout();
   emit('close');
-  router.push('/login');
+  authStore.logout();
 }
 
 function formatDate(date?: Date): string {

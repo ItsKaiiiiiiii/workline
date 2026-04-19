@@ -8,6 +8,24 @@ export type NodeType =
   | 'notification'
   | 'output';
 
+export type FieldType = 'string' | 'number' | 'boolean' | 'object' | 'array' | 'any';
+
+export interface InputFieldDefinition {
+  name: string;
+  label: string;
+  type: FieldType;
+  required?: boolean;
+  description?: string;
+  defaultValue?: any;
+}
+
+export interface OutputFieldDefinition {
+  name: string;
+  label: string;
+  type: FieldType;
+  description?: string;
+}
+
 export interface NodeConfig {
   type: NodeType;
   label: string;
@@ -18,6 +36,9 @@ export interface NodeConfig {
   defaultParams: Record<string, any>;
   inputs: string[];
   outputs: string[];
+  inputFields?: InputFieldDefinition[];
+  outputFields?: OutputFieldDefinition[];
+  defaultOutputTransform?: string;
 }
 
 export interface NodeData {
@@ -31,6 +52,8 @@ export interface NodeData {
   bgColor: string;
   inputs: string[];
   outputs: string[];
+  inputMappings?: Record<string, string>;
+  outputTransform?: string;
 }
 
 export interface EdgeData {

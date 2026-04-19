@@ -1,16 +1,16 @@
 <template>
   <div class="main-layout">
-    <aside class="sidebar">
+    <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
       <div class="sidebar-header">
         <div class="logo">
           <div class="logo-icon">
             <Workflow class="w-6 h-6 text-white" />
           </div>
-          <span class="logo-text">Workline</span>
+          <span v-if="!sidebarCollapsed" class="logo-text">Workline</span>
         </div>
       </div>
 
-      <div class="org-switcher">
+      <div v-if="!sidebarCollapsed" class="org-switcher">
         <button class="org-selector" @click="showOrgModal = true">
           <Building class="w-4 h-4" />
           <span class="org-name">{{ currentOrg?.name || '选择组织' }}</span>
@@ -23,29 +23,32 @@
           to="/workflows/create"
           class="nav-item"
           :class="{ active: $route.path === '/workflows/create' }"
+          :title="sidebarCollapsed ? '创建工作流' : ''"
         >
           <PlusSquare class="w-5 h-5" />
-          <span>创建工作流</span>
+          <span v-if="!sidebarCollapsed">创建工作流</span>
         </router-link>
         <router-link
           to="/workflows/published"
           class="nav-item"
           :class="{ active: $route.path === '/workflows/published' }"
+          :title="sidebarCollapsed ? '已发布工作流' : ''"
         >
           <ListChecks class="w-5 h-5" />
-          <span>已发布工作流</span>
+          <span v-if="!sidebarCollapsed">已发布工作流</span>
         </router-link>
         <router-link
           to="/datasources"
           class="nav-item"
           :class="{ active: $route.path === '/datasources' }"
+          :title="sidebarCollapsed ? '数据源管理' : ''"
         >
           <Database class="w-5 h-5" />
-          <span>数据源管理</span>
+          <span v-if="!sidebarCollapsed">数据源管理</span>
         </router-link>
       </nav>
 
-      <div class="sidebar-footer">
+      <div v-if="!sidebarCollapsed" class="sidebar-footer">
         <button class="user-info-btn" @click="showUserProfile = true">
           <div class="user-avatar">
             {{ user?.nickname?.charAt(0).toUpperCase() || user?.username?.charAt(0).toUpperCase() || 'U' }}
@@ -54,6 +57,20 @@
             <div class="user-name">{{ user?.nickname || user?.username }}</div>
             <div class="user-email">{{ user?.email }}</div>
           </div>
+        </button>
+      </div>
+
+      <div v-if="sidebarCollapsed" class="sidebar-footer-collapsed">
+        <button class="user-info-btn-collapsed" @click="showUserProfile = true">
+          <div class="user-avatar">
+            {{ user?.nickname?.charAt(0).toUpperCase() || user?.username?.charAt(0).toUpperCase() || 'U' }}
+          </div>
+        </button>
+      </div>
+
+      <div class="sidebar-toggle-wrapper">
+        <button class="sidebar-toggle" @click="sidebarCollapsed = !sidebarCollapsed">
+          <component :is="sidebarCollapsed ? PanelLeftOpen : PanelLeftClose" class="w-5 h-5" />
         </button>
       </div>
     </aside>
@@ -65,6 +82,13 @@
     <UserProfile
       :show="showUserProfile"
       @close="showUserProfile = false"
+    />
+
+    <Toast
+      :show="showSuccessToast"
+      :message="successMessage"
+      type="success"
+      @close="showSuccessToast = false"
     />
 
     <div v-if="showOrgModal" class="modal-overlay" @click.self="showOrgModal = false">
@@ -116,19 +140,22 @@
             <input
               v-model="newOrgName"
               type="text"
-              class="form-input"
+              :class="['form-input', { 'input-error': createOrgFieldErrors.name }]"
               placeholder="输入组织名称"
             />
+            <p v-if="createOrgFieldErrors.name" class="error-text">{{ createOrgFieldErrors.name }}</p>
           </div>
           <div class="form-group">
             <label class="form-label">描述（可选）</label>
             <textarea
               v-model="newOrgDesc"
-              class="form-textarea"
+              :class="['form-textarea', { 'input-error': createOrgFieldErrors.description }]"
               rows="3"
               placeholder="输入组织描述"
             />
+            <p v-if="createOrgFieldErrors.description" class="error-text">{{ createOrgFieldErrors.description }}</p>
           </div>
+          <p v-if="createOrgError" class="error-message">{{ createOrgError }}</p>
         </div>
         <div class="modal-footer">
           <button class="btn btn-secondary" @click="showCreateOrgModal = false">
@@ -150,16 +177,19 @@ import {
   Workflow,
   Building,
   ChevronDown,
+  PanelLeftClose,
+  PanelLeftOpen,
   PlusSquare,
   ListChecks,
-  LogOut,
   X,
   Plus,
   Check,
   Database,
 } from 'lucide-vue-next';
 import { useAuthStore } from '../../stores/auth';
+import type { ApiError } from '../../utils/api';
 import UserProfile from '../auth/UserProfile.vue';
+import Toast from '../common/Toast.vue';
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -173,6 +203,11 @@ const showCreateOrgModal = ref(false);
 const showUserProfile = ref(false);
 const newOrgName = ref('');
 const newOrgDesc = ref('');
+const createOrgError = ref('');
+const createOrgFieldErrors = ref<Record<string, string>>({});
+const showSuccessToast = ref(false);
+const successMessage = ref('');
+const sidebarCollapsed = ref(false);
 
 function selectOrg(org: any) {
   authStore.switchOrganization(org.id);
@@ -181,15 +216,34 @@ function selectOrg(org: any) {
 
 async function handleCreateOrg() {
   if (!newOrgName.value) return;
-  await authStore.createOrganization(newOrgName.value, newOrgDesc.value);
-  newOrgName.value = '';
-  newOrgDesc.value = '';
-  showCreateOrgModal.value = false;
-}
 
-function handleLogout() {
-  authStore.logout();
-  router.push('/login');
+  createOrgError.value = '';
+  createOrgFieldErrors.value = {};
+
+  try {
+    await authStore.createOrganization({
+      name: newOrgName.value,
+      description: newOrgDesc.value || undefined,
+    });
+    newOrgName.value = '';
+    newOrgDesc.value = '';
+    showCreateOrgModal.value = false;
+    successMessage.value = '组织创建成功';
+    showSuccessToast.value = true;
+  } catch (err: any) {
+    console.error('Failed to create organization:', err);
+
+    if (err.name === 'ApiError') {
+      const apiErr = err as ApiError;
+      createOrgError.value = apiErr.message;
+
+      if (apiErr.data && typeof apiErr.data === 'object') {
+        createOrgFieldErrors.value = apiErr.data as Record<string, string>;
+      }
+    } else {
+      createOrgError.value = err.message || '创建组织失败，请稍后重试';
+    }
+  }
 }
 </script>
 
@@ -206,11 +260,48 @@ function handleLogout() {
   border-right: 1px solid #e5e7eb;
   display: flex;
   flex-direction: column;
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.sidebar.collapsed {
+  width: 72px;
 }
 
 .sidebar-header {
   padding: 20px;
   border-bottom: 1px solid #e5e7eb;
+}
+
+.sidebar-toggle-wrapper {
+  padding: 16px 12px;
+  border-top: 1px solid #f3f4f6;
+  display: flex;
+  justify-content: center;
+}
+
+.sidebar-toggle {
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  border: none;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #ffffff;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.sidebar-toggle:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+}
+
+.sidebar-toggle:active {
+  transform: translateY(0);
 }
 
 .logo {
@@ -356,6 +447,44 @@ function handleLogout() {
 .main-content {
   flex: 1;
   overflow: hidden;
+}
+
+.sidebar.collapsed .logo {
+  justify-content: center;
+}
+
+.sidebar.collapsed .nav-item {
+  justify-content: center;
+  padding: 12px;
+}
+
+.sidebar.collapsed .nav-item span {
+  display: none;
+}
+
+.sidebar-footer-collapsed {
+  padding: 16px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: center;
+}
+
+.user-info-btn-collapsed {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-info-btn-collapsed:hover {
+  background: #f3f4f6;
 }
 
 .modal-overlay {
@@ -524,6 +653,15 @@ function handleLogout() {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
+.form-input.input-error {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.form-input.input-error:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
 .form-textarea {
   width: 100%;
   padding: 10px 12px;
@@ -541,6 +679,28 @@ function handleLogout() {
   background: #ffffff;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-textarea.input-error {
+  border-color: #ef4444;
+  background: #fef2f2;
+}
+
+.form-textarea.input-error:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.error-message {
+  color: #ef4444;
+  font-size: 14px;
+  text-align: center;
+  margin: 0 0 8px 0;
+}
+
+.error-text {
+  font-size: 12px;
+  color: #ef4444;
+  margin: 4px 0 0 0;
 }
 
 .modal-footer {

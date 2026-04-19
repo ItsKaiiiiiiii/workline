@@ -96,10 +96,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import * as Icons from 'lucide-vue-next';
 import { ZoomIn, ZoomOut, Maximize } from 'lucide-vue-next';
 import { useWorkflowStore } from '../../stores/workflow';
+import { NODE_LIBRARY } from '../../config/nodeLibrary';
 import type { NodeConfig, NodeData, EdgeData } from '../../types';
 
 const store = useWorkflowStore();
@@ -110,6 +111,19 @@ const edges = ref<EdgeData[]>([]);
 const selectedNodeId = ref<string | null>(null);
 
 const zoom = ref(1);
+
+// 与 store 同步
+watch(() => store.nodes, (newNodes) => {
+  nodes.value = newNodes as any;
+}, { immediate: true });
+
+watch(() => store.edges, (newEdges) => {
+  edges.value = newEdges;
+}, { immediate: true });
+
+watch(() => store.selectedNodeId, (newId) => {
+  selectedNodeId.value = newId;
+});
 
 const tempEdge = ref<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
 let isConnecting = false;
@@ -126,6 +140,12 @@ function getIcon(iconName: string) {
 function selectNode(node: any) {
   selectedNodeId.value = node.id;
   store.selectNode(node.id);
+}
+
+function handleKeyDown(event: KeyboardEvent) {
+  if ((event.key === 'Delete' || event.key === 'Backspace') && selectedNodeId.value) {
+    store.removeNode(selectedNodeId.value);
+  }
 }
 
 function startDrag(event: MouseEvent, node: any) {
@@ -218,6 +238,7 @@ function onDrop(event: DragEvent) {
   const y = event.clientY - canvasRect.top - 36;
 
   const id = `${nodeConfig.type}-${Date.now()}`;
+  const nodeConfigFull = NODE_LIBRARY.find(n => n.type === nodeConfig.type);
   const nodeData = {
     id,
     label: nodeConfig.label,
@@ -229,6 +250,8 @@ function onDrop(event: DragEvent) {
     bgColor: nodeConfig.bgColor,
     inputs: nodeConfig.inputs,
     outputs: nodeConfig.outputs,
+    inputMappings: {},
+    outputTransform: nodeConfigFull?.defaultOutputTransform || '',
     x,
     y,
   };
@@ -263,18 +286,20 @@ function resetZoom() {
   zoom.value = 1;
 }
 
-function handleNodeDrop(nodeConfig: NodeConfig, event: DragEvent) {
+function handleNodeDrop(_nodeConfig: NodeConfig, _event: DragEvent) {
   // 这个方法保持接口兼容，实际拖拽在onDrop中处理
 }
 
 onMounted(() => {
   document.addEventListener('mousemove', onMouseMove);
   document.addEventListener('mouseup', onMouseUp);
+  document.addEventListener('keydown', handleKeyDown);
 });
 
 onUnmounted(() => {
   document.removeEventListener('mousemove', onMouseMove);
   document.removeEventListener('mouseup', onMouseUp);
+  document.removeEventListener('keydown', handleKeyDown);
 });
 
 defineExpose({

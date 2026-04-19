@@ -1,24 +1,52 @@
 import { defineStore } from 'pinia';
 import { ref, computed, onUnmounted } from 'vue';
+import router from '../router';
+import authApi from '../services/authApi';
+import organizationApi from '../services/organizationApi';
 import type {
-  User,
+  UserInfo,
   Organization,
-  AuthState,
   LoginRequest,
-  RegisterRequest,
-  UpdateUserRequest,
-  CreateOrganizationRequest,
-} from '../types/auth';
+  RegisterWithOrganizationRequest,
+  CreateFirstOrganizationRequest,
+} from '../types/api';
 
 const TOKEN_REFRESH_INTERVAL = 10 * 60 * 1000; // 10分钟
 
+// 转换 API 的 UserInfo 到本地 User 格式
+function mapUserInfoToUser(userInfo: UserInfo) {
+  return {
+    id: String(userInfo.userId),
+    username: userInfo.username,
+    email: userInfo.email,
+    avatar: userInfo.avatarUrl,
+    nickname: userInfo.realName,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
+// 转换 API 的 Organization 到本地格式
+function mapOrganization(org: Organization) {
+  return {
+    id: org.organizationId,
+    name: org.name,
+    description: org.description,
+    ownerId: String(org.ownerId),
+    members: [], // 这个需要单独获取
+    createdAt: new Date(org.createdAt),
+    updatedAt: new Date(org.updatedAt),
+  };
+}
+
 export const useAuthStore = defineStore('auth', () => {
-  const user = ref<User | null>(null);
+  // 状态
+  const user = ref<ReturnType<typeof mapUserInfoToUser> | null>(null);
   const token = ref<string | null>(null);
   const refreshToken = ref<string | null>(null);
   const tokenExpiresAt = ref<Date | null>(null);
-  const organizations = ref<Organization[]>([]);
-  const currentOrganization = ref<Organization | null>(null);
+  const organizations = ref<ReturnType<typeof mapOrganization>[]>([]);
+  const currentOrganization = ref<ReturnType<typeof mapOrganization> | null>(null);
   const isLoading = ref(false);
   const needsOrganization = ref(false);
 
@@ -107,37 +135,46 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('auth_current_organization');
   }
 
+  // 处理登录响应
+  function handleAuthResponse(response: Awaited<ReturnType<typeof authApi.login>>) {
+    const data = response.data;
+    token.value = data.accessToken;
+    refreshToken.value = data.refreshToken;
+    tokenExpiresAt.value = new Date(Date.now() + data.expiresIn * 1000);
+    user.value = mapUserInfoToUser(data.userInfo);
+    needsOrganization.value = data.needsOrganization;
+
+    if (data.organizationId) {
+      const org: Organization = {
+        organizationId: data.organizationId,
+        name: data.organizationName,
+        description: '',
+        ownerId: data.userInfo.userId,
+        ownerName: data.userInfo.realName,
+        status: 'ACTIVE',
+        currentUserRole: 'OWNER',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      currentOrganization.value = mapOrganization(org);
+    }
+
+    saveToStorage();
+    startTokenRefresh();
+  }
+
   // 登录
   async function login(credentials: LoginRequest): Promise<boolean> {
     isLoading.value = true;
     try {
-      // TODO: 替换为真实后端API调用
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
-      // 模拟登录成功
-      const mockUser: User = {
-        id: 'user-' + Date.now(),
-        username: credentials.username,
-        email: `${credentials.username}@example.com`,
-        nickname: credentials.username,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      user.value = mockUser;
-      token.value = 'token-' + Date.now();
-      refreshToken.value = 'refresh-token-' + Date.now();
-      tokenExpiresAt.value = new Date(Date.now() + TOKEN_REFRESH_INTERVAL + 60000); // 11分钟后过期
-
-      // 检查用户是否有组织
-      // TODO: 替换为真实后端API调用获取用户组织列表
-      organizations.value = [];
-      needsOrganization.value = true;
-
-      saveToStorage();
-      startTokenRefresh();
-
-      return true;
+      const response = await authApi.login(credentials);
+      if (response.success) {
+        handleAuthResponse(response);
+        // 获取组织列表
+        await fetchOrganizations();
+        return true;
+      }
+      return false;
     } catch (error) {
       console.error('Login failed:', error);
       return false;
@@ -146,39 +183,42 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  // 注册
-  async function register(data: RegisterRequest): Promise<boolean> {
+  // 注册并创建组织
+  async function registerWithOrganization(data: RegisterWithOrganizationRequest): Promise<boolean> {
     isLoading.value = true;
     try {
-      // TODO: 替换为真实后端API调用
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
-      // 模拟注册成功
-      const mockUser: User = {
-        id: 'user-' + Date.now(),
-        username: data.username,
-        email: data.email,
-        nickname: data.nickname || data.username,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      user.value = mockUser;
-      token.value = 'token-' + Date.now();
-      refreshToken.value = 'refresh-token-' + Date.now();
-      tokenExpiresAt.value = new Date(Date.now() + TOKEN_REFRESH_INTERVAL + 60000);
-
-      // 新注册用户需要创建组织
-      organizations.value = [];
-      needsOrganization.value = true;
-
-      saveToStorage();
-      startTokenRefresh();
-
-      return true;
+      const response = await authApi.registerWithOrganization(data);
+      if (response.success) {
+        handleAuthResponse(response);
+        await fetchOrganizations();
+        return true;
+      }
+      return false;
     } catch (error) {
       console.error('Registration failed:', error);
+      throw error;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  // 为已注册用户创建第一个组织
+  async function createFirstOrganization(data: CreateFirstOrganizationRequest): Promise<boolean> {
+    isLoading.value = true;
+    try {
+      const response = await authApi.createFirstOrganization(data);
+      if (response.success) {
+        const newOrg = mapOrganization(response.data);
+        organizations.value.push(newOrg);
+        currentOrganization.value = newOrg;
+        needsOrganization.value = false;
+        saveToStorage();
+        return true;
+      }
       return false;
+    } catch (error) {
+      console.error('Failed to create organization:', error);
+      throw error;
     } finally {
       isLoading.value = false;
     }
@@ -187,43 +227,27 @@ export const useAuthStore = defineStore('auth', () => {
   // 获取当前用户信息
   async function fetchCurrentUser(): Promise<void> {
     try {
-      // TODO: 替换为真实后端API调用
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      // 如果已在本地存储中有用户信息，则不需要重新获取
+      const response = await authApi.getCurrentUser();
+      if (response.success) {
+        user.value = mapUserInfoToUser(response.data);
+        saveToStorage();
+      }
     } catch (error) {
       console.error('Failed to fetch current user:', error);
     }
   }
 
-  // 更新用户信息
-  async function updateUser(data: UpdateUserRequest): Promise<boolean> {
-    isLoading.value = true;
-    try {
-      // TODO: 替换为真实后端API调用
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      if (user.value) {
-        user.value = {
-          ...user.value,
-          ...data,
-          updatedAt: new Date(),
-        };
-        saveToStorage();
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Failed to update user:', error);
-      return false;
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
   // 登出
-  function logout() {
-    // TODO: 调用后端登出API
-    clearAuth();
+  async function logout() {
+    try {
+      await authApi.logout();
+    } catch (error) {
+      console.error('Logout API call failed:', error);
+    } finally {
+      clearAuth();
+      // 立即跳转到登录页
+      router.push('/login');
+    }
   }
 
   // 刷新令牌
@@ -231,16 +255,16 @@ export const useAuthStore = defineStore('auth', () => {
     if (!refreshToken.value) return false;
 
     try {
-      // TODO: 替换为真实后端API调用
-      await new Promise((resolve) => setTimeout(resolve, 300));
-
-      // 模拟刷新成功
-      token.value = 'token-' + Date.now();
-      refreshToken.value = 'refresh-token-' + Date.now();
-      tokenExpiresAt.value = new Date(Date.now() + TOKEN_REFRESH_INTERVAL + 60000);
-
-      saveToStorage();
-      return true;
+      const response = await authApi.refreshToken({ refreshToken: refreshToken.value });
+      if (response.success) {
+        const data = response.data;
+        token.value = data.accessToken;
+        refreshToken.value = data.refreshToken;
+        tokenExpiresAt.value = new Date(Date.now() + data.expiresIn * 1000);
+        saveToStorage();
+        return true;
+      }
+      throw new Error('Token refresh failed');
     } catch (error) {
       console.error('Token refresh failed:', error);
       logout();
@@ -254,12 +278,11 @@ export const useAuthStore = defineStore('auth', () => {
     refreshTimer = setInterval(() => {
       if (tokenExpiresAt.value) {
         const timeUntilExpiry = tokenExpiresAt.value.getTime() - Date.now();
-        // 在令牌过期前1分钟刷新
         if (timeUntilExpiry < 60000) {
           refreshTokens();
         }
       }
-    }, 60000); // 每分钟检查一次
+    }, 60000);
   }
 
   // 停止令牌自动刷新
@@ -271,40 +294,38 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   // 切换组织
-  function switchOrganization(orgId: string) {
-    const org = organizations.value.find((o) => o.id === orgId);
-    if (org) {
-      currentOrganization.value = org;
-      saveToStorage();
+  async function switchOrganization(orgId: string): Promise<boolean> {
+    try {
+      const response = await organizationApi.switchOrganization(orgId);
+      if (response.success) {
+        currentOrganization.value = mapOrganization(response.data);
+        saveToStorage();
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Failed to switch organization:', error);
+      return false;
     }
   }
 
   // 创建组织
-  async function createOrganization(data: CreateOrganizationRequest): Promise<Organization | null> {
+  async function createOrganization(data: { name: string; description?: string }): Promise<boolean> {
     isLoading.value = true;
     try {
-      // TODO: 替换为真实后端API调用
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      const newOrg: Organization = {
-        id: 'org-' + Date.now(),
-        name: data.name,
-        description: data.description,
-        ownerId: user.value!.id,
-        members: [user.value!.id],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      organizations.value.push(newOrg);
-      currentOrganization.value = newOrg;
-      needsOrganization.value = false;
-      saveToStorage();
-
-      return newOrg;
+      const response = await organizationApi.createOrganization(data);
+      if (response.success) {
+        const newOrg = mapOrganization(response.data);
+        organizations.value.push(newOrg);
+        currentOrganization.value = newOrg;
+        needsOrganization.value = false;
+        saveToStorage();
+        return true;
+      }
+      return false;
     } catch (error) {
       console.error('Failed to create organization:', error);
-      return null;
+      throw error;
     } finally {
       isLoading.value = false;
     }
@@ -313,11 +334,28 @@ export const useAuthStore = defineStore('auth', () => {
   // 获取用户组织列表
   async function fetchOrganizations(): Promise<void> {
     try {
-      // TODO: 替换为真实后端API调用
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      // 已在本地存储中有组织信息的话不需要重新获取
+      const response = await organizationApi.getOrganizations();
+      if (response.success) {
+        organizations.value = response.data.map(mapOrganization);
+        if (organizations.value.length > 0 && !currentOrganization.value) {
+          currentOrganization.value = organizations.value[0];
+        }
+        saveToStorage();
+      }
     } catch (error) {
       console.error('Failed to fetch organizations:', error);
+    }
+  }
+
+  // 检查是否需要创建组织
+  async function checkNeedsOrganization(): Promise<void> {
+    try {
+      const response = await authApi.needsOrganization();
+      if (response.success) {
+        needsOrganization.value = response.data;
+      }
+    } catch (error) {
+      console.error('Failed to check needs organization:', error);
     }
   }
 
@@ -342,13 +380,14 @@ export const useAuthStore = defineStore('auth', () => {
     isLoading,
     needsOrganization,
     login,
-    register,
+    registerWithOrganization,
     logout,
     refreshTokens,
     fetchCurrentUser,
-    updateUser,
     switchOrganization,
     createOrganization,
+    createFirstOrganization,
     fetchOrganizations,
+    checkNeedsOrganization,
   };
 });

@@ -28,6 +28,19 @@
       </div>
       <PropertiesPanel />
     </div>
+
+    <Toast
+      :show="showSuccessToast"
+      :message="toastMessage"
+      type="success"
+      @close="showSuccessToast = false"
+    />
+    <Toast
+      :show="showErrorToast"
+      :message="toastMessage"
+      type="error"
+      @close="showErrorToast = false"
+    />
   </div>
 </template>
 
@@ -35,39 +48,114 @@
 import { ref, onMounted } from 'vue';
 import { Save, Rocket } from 'lucide-vue-next';
 import { useWorkflowsStore } from '../../stores/workflows';
+import { useWorkflowStore } from '../../stores/workflow';
 import NodePanel from '../layout/NodePanel.vue';
 import CanvasEditor from '../canvas/CanvasEditor.vue';
 import PropertiesPanel from '../layout/PropertiesPanel.vue';
+import Toast from '../common/Toast.vue';
 import type { NodeConfig } from '../../types';
+import type { ApiError } from '../../utils/api';
 
 const workflowsStore = useWorkflowsStore();
+const workflowStore = useWorkflowStore();
 
 const workflowName = ref('未命名工作流');
 const canvasEditorRef = ref();
+const showSuccessToast = ref(false);
+const showErrorToast = ref(false);
+const toastMessage = ref('');
 
 function handleNodeDragStart(event: DragEvent, node: NodeConfig) {
   canvasEditorRef.value?.handleNodeDrop(node, event);
 }
 
+function showSuccess(message: string) {
+  toastMessage.value = message;
+  showSuccessToast.value = true;
+}
+
+function showError(message: string) {
+  toastMessage.value = message;
+  showErrorToast.value = true;
+}
+
 async function handleSave() {
   if (!workflowName.value) {
-    alert('请输入工作流名称');
+    showError('请输入工作流名称');
     return;
   }
 
-  await workflowsStore.createWorkflow(workflowName.value);
-  alert('已保存到草稿！');
+  try {
+    // 转换节点数据格式
+    const nodes = workflowStore.nodes.map(node => ({
+      id: node.id,
+      type: node.type,
+      label: node.label,
+      config: node.params || {},
+    }));
+
+    // 转换边数据格式
+    const edges = workflowStore.edges.map(edge => ({
+      source: edge.source,
+      target: edge.target,
+    }));
+
+    await workflowsStore.saveWorkflowDefinition(
+      null,
+      workflowName.value,
+      '',
+      { nodes, edges }
+    );
+    showSuccess('已保存到草稿！');
+  } catch (err: any) {
+    console.error('Failed to save workflow:', err);
+    if (err.name === 'ApiError') {
+      const apiErr = err as ApiError;
+      showError(apiErr.detail || apiErr.message || '保存失败');
+    } else {
+      showError(err.message || '保存失败，请稍后重试');
+    }
+  }
 }
 
 async function handlePublish() {
   if (!workflowName.value) {
-    alert('请输入工作流名称');
+    showError('请输入工作流名称');
     return;
   }
 
-  const workflow = await workflowsStore.createWorkflow(workflowName.value);
-  await workflowsStore.publishWorkflow(workflow.id);
-  alert('工作流已发布！');
+  try {
+    // 转换节点数据格式
+    const nodes = workflowStore.nodes.map(node => ({
+      id: node.id,
+      type: node.type,
+      label: node.label,
+      config: node.params || {},
+    }));
+
+    // 转换边数据格式
+    const edges = workflowStore.edges.map(edge => ({
+      source: edge.source,
+      target: edge.target,
+    }));
+
+    const workflowId = await workflowsStore.saveWorkflowDefinition(
+      null,
+      workflowName.value,
+      '',
+      { nodes, edges }
+    );
+    await workflowsStore.publishWorkflow(workflowId);
+    showSuccess('工作流已发布！');
+  } catch (err: any) {
+    console.error('Failed to publish workflow:', err);
+    if (err.name === 'ApiError') {
+      const apiErr = err as ApiError;
+      showError(apiErr.detail || apiErr.message || '发布失败');
+    } else {
+      showError(err.message || '发布失败，请稍后重试');
+    }
+  }
 }
 </script>
 

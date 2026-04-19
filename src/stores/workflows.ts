@@ -1,13 +1,65 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { Workflow, WorkflowExecution } from '../types/auth';
+import workflowApi from '../services/workflowApi';
+import type { WorkflowDefinition, SaveWorkflowRequest, WorkflowDefinitionData } from '../types/api';
 import { useAuthStore } from './auth';
+
+// 转换 API 的 WorkflowDefinition 到本地格式
+function mapWorkflowDefinition(wf: WorkflowDefinition) {
+  let definitionData: WorkflowDefinitionData | null = null;
+  try {
+    definitionData = JSON.parse(wf.definitionJson);
+  } catch {
+    definitionData = { nodes: [], edges: [] };
+  }
+
+  return {
+    id: wf.workflowId,
+    name: wf.name,
+    description: wf.description,
+    organizationId: '', // 需要从 auth store 获取
+    createdBy: wf.createdBy || '',
+    status: wf.isDeleted ? 'archived' : (wf.isLatest ? 'published' : 'draft'),
+    nodes: definitionData?.nodes || [],
+    edges: definitionData?.edges || [],
+    createdAt: new Date(wf.createdAt),
+    updatedAt: new Date(wf.updatedAt),
+    publishedAt: wf.isLatest ? new Date(wf.updatedAt) : undefined,
+    version: wf.version,
+  };
+}
+
+// 本地 Workflow 类型
+interface LocalWorkflow {
+  id: string;
+  name: string;
+  description: string;
+  organizationId: string;
+  createdBy: string;
+  status: 'draft' | 'published' | 'archived';
+  nodes: any[];
+  edges: any[];
+  createdAt: Date;
+  updatedAt: Date;
+  publishedAt?: Date;
+  version?: number;
+}
+
+interface LocalWorkflowExecution {
+  id: string;
+  workflowId: string;
+  status: 'pending' | 'running' | 'success' | 'failed';
+  startedAt?: Date;
+  completedAt?: Date;
+  logs: string[];
+}
 
 export const useWorkflowsStore = defineStore('workflows', () => {
   const authStore = useAuthStore();
-  const workflows = ref<Workflow[]>([]);
-  const executions = ref<WorkflowExecution[]>([]);
-  const currentWorkflow = ref<Workflow | null>(null);
+  const workflows = ref<LocalWorkflow[]>([]);
+  const executions = ref<LocalWorkflowExecution[]>([]);
+  const currentWorkflow = ref<LocalWorkflow | null>(null);
+  const isLoading = ref(false);
 
   const publishedWorkflows = computed(() =>
     workflows.value.filter((w) => w.status === 'published')
@@ -18,142 +70,150 @@ export const useWorkflowsStore = defineStore('workflows', () => {
   );
 
   async function fetchWorkflows(): Promise<void> {
-    // 模拟API调用
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    if (authStore.currentOrganization) {
-      // 模拟数据
-      workflows.value = [
-        {
-          id: 'wf-1',
-          name: '每日数据同步',
-          description: '同步各系统数据',
-          organizationId: authStore.currentOrganization.id,
-          createdBy: authStore.user?.id || '',
-          status: 'published',
-          nodes: [],
-          edges: [],
-          createdAt: new Date(Date.now() - 86400000),
-          updatedAt: new Date(Date.now() - 86400000),
-          publishedAt: new Date(Date.now() - 86400000),
-        },
-        {
-          id: 'wf-2',
-          name: '新员工入职流程',
-          description: '自动化新员工入职手续',
-          organizationId: authStore.currentOrganization.id,
-          createdBy: authStore.user?.id || '',
-          status: 'published',
-          nodes: [],
-          edges: [],
-          createdAt: new Date(Date.now() - 172800000),
-          updatedAt: new Date(Date.now() - 172800000),
-          publishedAt: new Date(Date.now() - 172800000),
-        },
-        {
-          id: 'wf-3',
-          name: '未完成的工作流',
-          description: '正在编辑中...',
-          organizationId: authStore.currentOrganization.id,
-          createdBy: authStore.user?.id || '',
-          status: 'draft',
-          nodes: [],
-          edges: [],
-          createdAt: new Date(Date.now() - 3600000),
-          updatedAt: new Date(Date.now() - 3600000),
-        },
-      ];
-
-      executions.value = [
-        {
-          id: 'exec-1',
-          workflowId: 'wf-1',
-          status: 'success',
-          startedAt: new Date(Date.now() - 3600000),
-          completedAt: new Date(Date.now() - 3540000),
-          logs: ['开始执行', '处理数据', '完成同步'],
-        },
-        {
-          id: 'exec-2',
-          workflowId: 'wf-1',
-          status: 'running',
-          startedAt: new Date(Date.now() - 60000),
-          logs: ['开始执行', '正在处理...'],
-        },
-        {
-          id: 'exec-3',
-          workflowId: 'wf-2',
-          status: 'failed',
-          startedAt: new Date(Date.now() - 7200000),
-          completedAt: new Date(Date.now() - 7180000),
-          logs: ['开始执行', '错误：连接失败'],
-        },
-      ];
+    isLoading.value = true;
+    try {
+      const response = await workflowApi.getWorkflows();
+      if (response.success) {
+        workflows.value = response.data.map(mapWorkflowDefinition);
+      }
+    } catch (error) {
+      console.error('Failed to fetch workflows:', error);
+    } finally {
+      isLoading.value = false;
     }
   }
 
-  function getExecutionsForWorkflow(workflowId: string): WorkflowExecution[] {
+  function getExecutionsForWorkflow(workflowId: string): LocalWorkflowExecution[] {
     return executions.value.filter((e) => e.workflowId === workflowId);
   }
 
-  function setCurrentWorkflow(workflow: Workflow | null) {
+  function setCurrentWorkflow(workflow: LocalWorkflow | null) {
     currentWorkflow.value = workflow;
   }
 
   async function createWorkflow(
     name: string,
     description?: string
-  ): Promise<Workflow> {
+  ): Promise<LocalWorkflow> {
     if (!authStore.currentOrganization) {
       throw new Error('No organization selected');
     }
 
-    const workflow: Workflow = {
-      id: 'wf-' + Date.now(),
+    const newWorkflow: SaveWorkflowRequest = {
       name,
       description,
-      organizationId: authStore.currentOrganization.id,
-      createdBy: authStore.user?.id || '',
-      status: 'draft',
-      nodes: [],
-      edges: [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      definition: {
+        nodes: [],
+        edges: [],
+      },
     };
 
-    workflows.value.push(workflow);
-    return workflow;
+    const response = await workflowApi.saveWorkflow(newWorkflow);
+    if (response.success) {
+      const created = mapWorkflowDefinition(response.data);
+      workflows.value.push(created);
+      return created;
+    }
+    throw new Error('Failed to create workflow');
   }
 
-  async function updateWorkflow(id: string, data: Partial<Workflow>): Promise<void> {
+  async function updateWorkflow(id: string, data: Partial<LocalWorkflow>): Promise<void> {
     const index = workflows.value.findIndex((w) => w.id === id);
     if (index !== -1) {
-      workflows.value[index] = {
-        ...workflows.value[index],
-        ...data,
-        updatedAt: new Date(),
+      const existing = workflows.value[index];
+      const updateData: SaveWorkflowRequest = {
+        workflowId: id,
+        name: data.name || existing.name,
+        description: data.description !== undefined ? data.description : existing.description,
+        definition: {
+          nodes: data.nodes || existing.nodes,
+          edges: data.edges || existing.edges,
+        },
       };
+
+      const response = await workflowApi.saveWorkflow(updateData);
+      if (response.success) {
+        workflows.value[index] = {
+          ...existing,
+          ...data,
+          updatedAt: new Date(),
+        };
+      }
     }
+  }
+
+  async function saveWorkflowDefinition(
+    workflowId: string | null,
+    name: string,
+    description: string,
+    definition: WorkflowDefinitionData
+  ): Promise<string> {
+    const request: SaveWorkflowRequest = {
+      name,
+      description,
+      definition,
+    };
+    if (workflowId) {
+      request.workflowId = workflowId;
+    }
+
+    const response = await workflowApi.saveWorkflow(request);
+    if (response.success) {
+      const saved = mapWorkflowDefinition(response.data);
+      const index = workflows.value.findIndex((w) => w.id === saved.id);
+      if (index !== -1) {
+        workflows.value[index] = saved;
+      } else {
+        workflows.value.push(saved);
+      }
+      return saved.id;
+    }
+    throw new Error('Failed to save workflow');
   }
 
   async function publishWorkflow(id: string): Promise<void> {
-    await updateWorkflow(id, {
-      status: 'published',
-      publishedAt: new Date(),
-    });
+    // 发布实际上是保存最新版本
+    const workflow = workflows.value.find((w) => w.id === id);
+    if (workflow) {
+      await updateWorkflow(id, { status: 'published' });
+    }
   }
 
   async function deleteWorkflow(id: string): Promise<void> {
-    workflows.value = workflows.value.filter((w) => w.id !== id);
-    if (currentWorkflow.value?.id === id) {
-      currentWorkflow.value = null;
+    const response = await workflowApi.deleteWorkflow(id);
+    if (response.success) {
+      workflows.value = workflows.value.filter((w) => w.id !== id);
+      if (currentWorkflow.value?.id === id) {
+        currentWorkflow.value = null;
+      }
     }
+  }
+
+  async function loadWorkflow(workflowId: string): Promise<LocalWorkflow | null> {
+    try {
+      const response = await workflowApi.getLatestWorkflow(workflowId);
+      if (response.success) {
+        const workflow = mapWorkflowDefinition(response.data);
+        const index = workflows.value.findIndex((w) => w.id === workflow.id);
+        if (index !== -1) {
+          workflows.value[index] = workflow;
+        } else {
+          workflows.value.push(workflow);
+        }
+        currentWorkflow.value = workflow;
+        return workflow;
+      }
+    } catch (error) {
+      console.error('Failed to load workflow:', error);
+    }
+    return null;
   }
 
   return {
     workflows,
     executions,
     currentWorkflow,
+    isLoading,
     publishedWorkflows,
     draftWorkflows,
     fetchWorkflows,
@@ -163,5 +223,7 @@ export const useWorkflowsStore = defineStore('workflows', () => {
     updateWorkflow,
     publishWorkflow,
     deleteWorkflow,
+    saveWorkflowDefinition,
+    loadWorkflow,
   };
 });
