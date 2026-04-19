@@ -41,10 +41,16 @@ export const workflowApi = {
   // 删除工作流（软删除）
   async deleteWorkflow(workflowId: string, deletedBy?: string, isOwner?: boolean): Promise<ApiResponse<null>> {
     let url = `/workflow-definitions/${workflowId}`;
-    const params = new URLSearchParams();
-    if (deletedBy) params.append('deletedBy', deletedBy);
-    if (isOwner !== undefined) params.append('isOwner', String(isOwner));
-    if (params.toString()) url += `?${params.toString()}`;
+    const params: string[] = [];
+    if (deletedBy !== undefined && deletedBy !== null) {
+      params.push(`deletedBy=${encodeURIComponent(deletedBy)}`);
+    }
+    if (isOwner !== undefined) {
+      params.push(`isOwner=${encodeURIComponent(String(isOwner))}`);
+    }
+    if (params.length > 0) {
+      url += `?${params.join('&')}`;
+    }
     return api.delete<null>(url);
   },
 

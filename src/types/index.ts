@@ -1,12 +1,4 @@
-export type NodeType =
-  | 'trigger'
-  | 'action'
-  | 'condition'
-  | 'transform'
-  | 'api'
-  | 'database'
-  | 'notification'
-  | 'output';
+export type NodeType = string;
 
 export type FieldType = 'string' | 'number' | 'boolean' | 'object' | 'array' | 'any';
 
@@ -39,6 +31,9 @@ export interface NodeConfig {
   inputFields?: InputFieldDefinition[];
   outputFields?: OutputFieldDefinition[];
   defaultOutputTransform?: string;
+  canBeSource?: boolean;
+  isVirtual?: boolean;
+  category?: 'SYSTEM' | 'CUSTOM';
 }
 
 export interface NodeData {
@@ -54,6 +49,8 @@ export interface NodeData {
   outputs: string[];
   inputMappings?: Record<string, string>;
   outputTransform?: string;
+  x?: number;
+  y?: number;
 }
 
 export interface EdgeData {

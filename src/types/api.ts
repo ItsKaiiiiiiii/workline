@@ -134,8 +134,10 @@ export interface WorkflowDefinitionNode {
 }
 
 export interface WorkflowDefinitionEdge {
-  source: string;
-  target: string;
+  id: string;
+  sourceNodeId: string;
+  targetNodeId: string;
+  label?: string;
 }
 
 export interface WorkflowDefinitionData {
@@ -148,8 +150,8 @@ export interface SaveWorkflowRequest {
   workflowId?: string;
   name: string;
   description?: string;
-  definition: WorkflowDefinitionData;
   createdBy?: string;
+  definition: WorkflowDefinitionData;
 }
 
 // ========== 部署管理模块类型 ==========

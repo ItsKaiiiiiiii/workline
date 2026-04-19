@@ -100,10 +100,12 @@ import { ref, onMounted, onUnmounted, watch } from 'vue';
 import * as Icons from 'lucide-vue-next';
 import { ZoomIn, ZoomOut, Maximize } from 'lucide-vue-next';
 import { useWorkflowStore } from '../../stores/workflow';
-import { NODE_LIBRARY } from '../../config/nodeLibrary';
+import { useComponentsStore } from '../../stores/components';
+import { getComponentConfig } from '../../config/componentConfig';
 import type { NodeConfig, NodeData, EdgeData } from '../../types';
 
 const store = useWorkflowStore();
+const componentsStore = useComponentsStore();
 
 const canvasRef = ref<HTMLDivElement>();
 const nodes = ref<(NodeData & { x: number; y: number })[]>([]);
@@ -143,7 +145,13 @@ function selectNode(node: any) {
 }
 
 function handleKeyDown(event: KeyboardEvent) {
-  if ((event.key === 'Delete' || event.key === 'Backspace') && selectedNodeId.value) {
+  // 如果焦点在输入框、文本域等可编辑元素中，不执行删除
+  const target = event.target as HTMLElement;
+  const isEditing = target.tagName === 'INPUT' ||
+                    target.tagName === 'TEXTAREA' ||
+                    target.isContentEditable;
+
+  if ((event.key === 'Delete' || event.key === 'Backspace') && selectedNodeId.value && !isEditing) {
     store.removeNode(selectedNodeId.value);
   }
 }
@@ -182,8 +190,9 @@ function onMouseMove(event: MouseEvent) {
   if (!canvasRect) return;
 
   if (isDragging && dragNode) {
-    dragNode.x = event.clientX - canvasRect.left - dragOffset.x;
-    dragNode.y = event.clientY - canvasRect.top - dragOffset.y;
+    const newX = event.clientX - canvasRect.left - dragOffset.x;
+    const newY = event.clientY - canvasRect.top - dragOffset.y;
+    store.updateNode(dragNode.id, { x: newX, y: newY });
   }
 
   if (isConnecting && tempEdge.value) {
@@ -209,7 +218,6 @@ function onMouseUp(event: MouseEvent) {
           sourceHandle: connectingFrom.portId,
           targetHandle: targetPortId,
         };
-        edges.value.push(newEdge);
         store.addEdge(newEdge);
       }
     }
@@ -238,25 +246,42 @@ function onDrop(event: DragEvent) {
   const y = event.clientY - canvasRect.top - 36;
 
   const id = `${nodeConfig.type}-${Date.now()}`;
-  const nodeConfigFull = NODE_LIBRARY.find(n => n.type === nodeConfig.type);
+  const nodeConfigFull = componentsStore.getComponentByType(nodeConfig.type);
+  const componentConfig = getComponentConfig(nodeConfig.type);
+
+  // Initialize config with default values from componentConfig
+  const defaultConfig: Record<string, any> = {};
+  if (componentConfig) {
+    for (const field of componentConfig.fields) {
+      if (field.default !== undefined) {
+        defaultConfig[field.name] = field.default;
+      }
+    }
+  }
+
+  // 解构 defaultParams，排除可能存在的旧 config 字段
+  const { config: _oldConfig, ...cleanDefaultParams } = nodeConfig.defaultParams || {};
+
   const nodeData = {
     id,
     label: nodeConfig.label,
     type: nodeConfig.type,
     description: nodeConfig.description,
-    params: { ...nodeConfig.defaultParams },
+    params: {
+      ...cleanDefaultParams,
+      config: defaultConfig,
+    },
     icon: nodeConfig.icon,
     color: nodeConfig.color,
     bgColor: nodeConfig.bgColor,
     inputs: nodeConfig.inputs,
     outputs: nodeConfig.outputs,
     inputMappings: {},
-    outputTransform: nodeConfigFull?.defaultOutputTransform || '',
+    outputTransform: nodeConfigFull?.defaultOutputTransform || nodeConfig.defaultOutputTransform || '',
     x,
     y,
   };
 
-  nodes.value.push(nodeData);
   store.addNode(nodeData);
 }
 
@@ -294,6 +319,11 @@ onMounted(() => {
   document.addEventListener('mousemove', onMouseMove);
   document.addEventListener('mouseup', onMouseUp);
   document.addEventListener('keydown', handleKeyDown);
+
+  // 在组件加载完成后获取组件列表
+  if (componentsStore.allComponents.length === 0) {
+    componentsStore.fetchComponents();
+  }
 });
 
 onUnmounted(() => {

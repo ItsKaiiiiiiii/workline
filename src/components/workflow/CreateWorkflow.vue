@@ -49,6 +49,7 @@ import { ref, onMounted } from 'vue';
 import { Save, Rocket } from 'lucide-vue-next';
 import { useWorkflowsStore } from '../../stores/workflows';
 import { useWorkflowStore } from '../../stores/workflow';
+import { getComponentConfig } from '../../config/componentConfig';
 import NodePanel from '../layout/NodePanel.vue';
 import CanvasEditor from '../canvas/CanvasEditor.vue';
 import PropertiesPanel from '../layout/PropertiesPanel.vue';
@@ -79,6 +80,15 @@ function showError(message: string) {
   showErrorToast.value = true;
 }
 
+// 辅助函数：解包 config.config 嵌套
+function getCleanConfig(params: any): any {
+  let config = params?.config || {};
+  if (config && typeof config === 'object' && 'config' in config) {
+    config = config.config;
+  }
+  return config || {};
+}
+
 async function handleSave() {
   if (!workflowName.value) {
     showError('请输入工作流名称');
@@ -87,17 +97,35 @@ async function handleSave() {
 
   try {
     // 转换节点数据格式
-    const nodes = workflowStore.nodes.map(node => ({
-      id: node.id,
-      type: node.type,
-      label: node.label,
-      config: node.params || {},
-    }));
+    const nodes = workflowStore.nodes.map(node => {
+      const componentConfig = getComponentConfig(node.type);
+      // 解包 config.config 嵌套
+      let currentConfig = getCleanConfig(node.params);
+      const finalConfig: Record<string, any> = { ...currentConfig };
+
+      // 填充缺失的默认值
+      if (componentConfig) {
+        for (const field of componentConfig.fields) {
+          if (field.default !== undefined && finalConfig[field.name] === undefined) {
+            finalConfig[field.name] = field.default;
+          }
+        }
+      }
+
+      return {
+        id: node.id,
+        type: node.type,
+        label: node.label,
+        config: finalConfig,
+      };
+    });
 
     // 转换边数据格式
     const edges = workflowStore.edges.map(edge => ({
-      source: edge.source,
-      target: edge.target,
+      id: edge.id,
+      sourceNodeId: edge.source,
+      targetNodeId: edge.target,
+      label: '',
     }));
 
     await workflowsStore.saveWorkflowDefinition(
@@ -126,17 +154,35 @@ async function handlePublish() {
 
   try {
     // 转换节点数据格式
-    const nodes = workflowStore.nodes.map(node => ({
-      id: node.id,
-      type: node.type,
-      label: node.label,
-      config: node.params || {},
-    }));
+    const nodes = workflowStore.nodes.map(node => {
+      const componentConfig = getComponentConfig(node.type);
+      // 解包 config.config 嵌套
+      let currentConfig = getCleanConfig(node.params);
+      const finalConfig: Record<string, any> = { ...currentConfig };
+
+      // 填充缺失的默认值
+      if (componentConfig) {
+        for (const field of componentConfig.fields) {
+          if (field.default !== undefined && finalConfig[field.name] === undefined) {
+            finalConfig[field.name] = field.default;
+          }
+        }
+      }
+
+      return {
+        id: node.id,
+        type: node.type,
+        label: node.label,
+        config: finalConfig,
+      };
+    });
 
     // 转换边数据格式
     const edges = workflowStore.edges.map(edge => ({
-      source: edge.source,
-      target: edge.target,
+      id: edge.id,
+      sourceNodeId: edge.source,
+      targetNodeId: edge.target,
+      label: '',
     }));
 
     const workflowId = await workflowsStore.saveWorkflowDefinition(

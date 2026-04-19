@@ -43,105 +43,123 @@
         </div>
       </div>
 
-      <!-- 输入字段配置 -->
-      <div v-if="currentNodeConfig?.inputFields && currentNodeConfig.inputFields.length > 0" class="section">
-        <div class="section-title">
-          <ArrowDownToLine class="w-4 h-4" />
-          <span>输入字段</span>
-        </div>
-        <div class="fields-list">
-          <div
-            v-for="field in currentNodeConfig.inputFields"
-            :key="field.name"
-            class="field-item"
-          >
-            <div class="field-header">
-              <span class="field-name">{{ field.label }}</span>
-              <span class="field-type">{{ field.type }}</span>
-              <span v-if="field.required" class="field-required">*</span>
-            </div>
-            <p v-if="field.description" class="field-desc">{{ field.description }}</p>
-            <div class="field-mapping">
-              <span class="mapping-label">映射到:</span>
-              <input
-                :value="inputMappings[field.name] || ''"
-                @input="updateInputMapping(field.name, ($event.target as HTMLInputElement).value)"
-                class="form-input mapping-input"
-                :placeholder="`$\{input.${field.name}}`"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="section">
+      <!-- 组件配置字段 -->
+      <div v-if="componentConfig && componentConfig.fields.length > 0" class="section">
         <div class="section-title">
           <Sliders class="w-4 h-4" />
-          <span>参数配置</span>
+          <span>组件配置</span>
         </div>
-        <div v-if="isDatabaseNode" class="datasource-selector-section">
-          <div class="form-item">
-            <label class="form-label">数据源</label>
+        <div class="fields-container">
+          <div v-for="field in componentConfig.fields" :key="field.name" class="form-item">
+            <div class="field-header">
+              <label class="form-label">
+                {{ field.label }}
+                <span v-if="field.required" class="field-required">*</span>
+              </label>
+            </div>
+            <p v-if="field.description" class="field-description">{{ field.description }}</p>
+
+            <!-- String Input -->
+            <input
+              v-if="field.type === 'string'"
+              type="text"
+              :value="getConfigValue(field.name, field.default)"
+              @input="updateConfigField(field.name, ($event.target as HTMLInputElement).value)"
+              class="form-input"
+              :placeholder="field.placeholder"
+            />
+
+            <!-- Number Input -->
+            <input
+              v-else-if="field.type === 'number'"
+              type="number"
+              :value="getConfigValue(field.name, field.default)"
+              @input="updateConfigField(field.name, Number(($event.target as HTMLInputElement).value))"
+              class="form-input"
+              :placeholder="field.placeholder"
+            />
+
+            <!-- Boolean Checkbox -->
+            <label v-else-if="field.type === 'boolean'" class="checkbox-label">
+              <input
+                type="checkbox"
+                :checked="getConfigValue(field.name, field.default)"
+                @change="updateConfigField(field.name, ($event.target as HTMLInputElement).checked)"
+                class="form-checkbox"
+              />
+              <span>启用</span>
+            </label>
+
+            <!-- Select Dropdown -->
             <select
-              :value="selectedNode.params.datasourceId"
-              @change="updateParam('datasourceId', ($event.target as HTMLSelectElement).value)"
+              v-else-if="field.type === 'select'"
+              :value="getConfigValue(field.name, field.default)"
+              @change="updateConfigField(field.name, ($event.target as HTMLSelectElement).value)"
               class="form-input"
             >
-              <option value="">选择数据源...</option>
-              <option v-for="ds in datasources" :key="ds.id" :value="ds.id">
-                {{ ds.name }} ({{ getDatasourceLabel(ds.type) }})
+              <option v-for="option in field.options" :key="option.value" :value="option.value">
+                {{ option.label }}
               </option>
             </select>
-          </div>
-          <div v-if="selectedNode?.params.datasourceId" class="selected-datasource-info">
-            <div class="info-item">
-              <span class="info-label">已选择:</span>
-              <span class="info-value">
-                {{ datasources.find(d => d.id === selectedNode?.params.datasourceId)?.name }}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div class="params-list">
-          <div v-for="(value, key) in selectedNode.params" :key="key" class="form-item">
-            <template v-if="!(isDatabaseNode && key === 'datasourceId')">
-              <label class="form-label capitalize">{{ key }}</label>
-              <input
-                v-if="typeof value === 'string'"
-                :value="value"
-                @input="updateParam(key, ($event.target as HTMLInputElement).value)"
-                class="form-input"
-              />
-              <input
-                v-else-if="typeof value === 'number'"
-                type="number"
-                :value="value"
-                @input="updateParam(key, Number(($event.target as HTMLInputElement).value))"
-                class="form-input"
-              />
-              <label v-else-if="typeof value === 'boolean'" class="checkbox-label">
-                <input
-                  type="checkbox"
-                  :checked="value"
-                  @change="updateParam(key, ($event.target as HTMLInputElement).checked)"
-                  class="form-checkbox"
-                />
-                <span>启用</span>
-              </label>
+
+            <!-- Textarea -->
+            <textarea
+              v-else-if="field.type === 'textarea'"
+              :value="getConfigValue(field.name, field.default)"
+              @input="updateConfigField(field.name, ($event.target as HTMLTextAreaElement).value)"
+              class="form-textarea"
+              rows="4"
+              :placeholder="field.placeholder"
+            />
+
+            <!-- Code Editor -->
+            <div v-else-if="field.type === 'code'" class="code-field-wrapper">
               <textarea
-                v-else
-                :value="JSON.stringify(value, null, 2)"
-                @input="updateParamFromJson(key, ($event.target as HTMLTextAreaElement).value)"
+                :value="getConfigValue(field.name, field.default)"
+                @input="updateConfigField(field.name, ($event.target as HTMLTextAreaElement).value)"
                 class="form-textarea font-mono"
-                rows="3"
+                rows="6"
+                :placeholder="field.placeholder"
               />
-            </template>
+            </div>
+
+            <!-- List Field -->
+            <div v-else-if="field.type === 'list' && field.listFields" class="list-field-wrapper">
+              <div class="list-items">
+                <div
+                  v-for="(item, index) in getListValue(field.name)"
+                  :key="index"
+                  class="list-item"
+                >
+                  <div class="list-item-content">
+                    <div v-for="listField in field.listFields" :key="listField.name" class="form-item">
+                      <label class="form-label-sm">{{ listField.label }}</label>
+                      <input
+                        v-if="listField.type === 'string'"
+                        type="text"
+                        :value="item[listField.name] || listField.default || ''"
+                        @input="updateListItemField(field.name, index, listField.name, ($event.target as HTMLInputElement).value)"
+                        class="form-input form-input-sm"
+                        :placeholder="listField.placeholder"
+                      />
+                    </div>
+                  </div>
+                  <button class="remove-item-btn" @click="removeListItem(field.name, index)">
+                    <Trash2 class="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+              <button class="add-item-btn" @click="addListItem(field.name, field.listFields)">
+                <Plus class="w-4 h-4" />
+                <span>添加项</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- 输出转换代码 -->
-      <div v-if="currentNodeConfig?.outputFields" class="section section-code">
+      <div class="section section-code">
         <div class="section-title">
           <Code2 class="w-4 h-4" />
           <span>输出转换</span>
@@ -154,30 +172,6 @@
           :default-code="currentNodeConfig?.defaultOutputTransform"
           @validate="onCodeValidate"
         />
-      </div>
-
-      <!-- 输出字段说明 -->
-      <div v-if="currentNodeConfig?.outputFields && currentNodeConfig.outputFields.length > 0" class="section">
-        <div class="section-title">
-          <ArrowUpFromLine class="w-4 h-4" />
-          <span>输出字段</span>
-        </div>
-        <div class="fields-list">
-          <div
-            v-for="field in currentNodeConfig.outputFields"
-            :key="field.name"
-            class="field-item"
-          >
-            <div class="field-header">
-              <span class="field-name">{{ field.label }}</span>
-              <span class="field-type">{{ field.type }}</span>
-            </div>
-            <p v-if="field.description" class="field-desc">{{ field.description }}</p>
-            <div class="field-usage">
-              <code>$\{output.{{ field.name }}}</code>
-            </div>
-          </div>
-        </div>
       </div>
 
       <div class="section">
@@ -213,23 +207,22 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { Settings, Sliders, Link, MousePointerClick, Code2, ArrowDownToLine, ArrowUpFromLine, Trash2 } from 'lucide-vue-next';
+import { Settings, Sliders, Link, MousePointerClick, Code2, Trash2, Plus } from 'lucide-vue-next';
 import * as Icons from 'lucide-vue-next';
 import { useWorkflowStore } from '../../stores/workflow';
 import { useDatasourceStore } from '../../stores/datasource';
-import { DATASOURCE_LIBRARY } from '../../config/datasourceLibrary';
-import { NODE_LIBRARY } from '../../config/nodeLibrary';
-import type { DatasourceType } from '../../types/datasource';
+import { useComponentsStore } from '../../stores/components';
+import { getComponentConfig, type ComponentConfig } from '../../config/componentConfig';
 import type { NodeConfig } from '../../types';
 import CodeEditor from '../node/CodeEditor.vue';
 
 const store = useWorkflowStore();
 const datasourceStore = useDatasourceStore();
+const componentsStore = useComponentsStore();
 
 const localLabel = ref('');
 const localDescription = ref('');
 const outputTransform = ref('');
-const inputMappings = ref<Record<string, string>>({});
 const codeValid = ref(true);
 
 watch(() => store.selectedNode, (node) => {
@@ -237,7 +230,6 @@ watch(() => store.selectedNode, (node) => {
     localLabel.value = node.label;
     localDescription.value = node.description || '';
     outputTransform.value = node.outputTransform || currentNodeConfig.value?.defaultOutputTransform || '';
-    inputMappings.value = node.inputMappings ? { ...node.inputMappings } : {};
   }
 }, { immediate: true });
 
@@ -248,11 +240,22 @@ watch(outputTransform, (newVal) => {
 });
 
 const selectedNode = computed(() => store.selectedNode);
-const datasources = computed(() => datasourceStore.organizationDatasources);
 
 const currentNodeConfig = computed<NodeConfig | undefined>(() => {
   if (!selectedNode.value) return undefined;
-  return NODE_LIBRARY.find(n => n.type === selectedNode.value?.type);
+  return componentsStore.getComponentByType(selectedNode.value.type);
+});
+
+const componentConfig = computed<ComponentConfig | undefined>(() => {
+  if (!selectedNode.value) return undefined;
+  return getComponentConfig(selectedNode.value.type);
+});
+
+onMounted(() => {
+  datasourceStore.fetchDatasources();
+  if (componentsStore.allComponents.length === 0) {
+    componentsStore.fetchComponents();
+  }
 });
 
 const iconComponent = computed(() => {
@@ -260,11 +263,98 @@ const iconComponent = computed(() => {
   return (Icons as any)[selectedNode.value.icon] || Icons.Circle;
 });
 
-const isDatabaseNode = computed(() => selectedNode.value?.type === 'database');
+// 辅助函数：解包 config.config 嵌套
+function getCleanConfig(params: any): any {
+  let config = params?.config || {};
+  if (config && typeof config === 'object' && 'config' in config) {
+    config = config.config;
+  }
+  return config || {};
+}
 
-function getDatasourceLabel(type: DatasourceType): string {
-  const config = DATASOURCE_LIBRARY.find((c) => c.type === type);
-  return config?.label || type;
+function getConfigValue(name: string, defaultValue: any = ''): any {
+  if (!selectedNode.value) return defaultValue;
+  const params = selectedNode.value.params || {};
+  const config = getCleanConfig(params);
+  return config[name] !== undefined ? config[name] : defaultValue;
+}
+
+function getListValue(name: string): any[] {
+  const value = getConfigValue(name, []);
+  return Array.isArray(value) ? value : [];
+}
+
+function updateConfigField(name: string, value: any) {
+  if (!selectedNode.value) return;
+  const params = selectedNode.value.params || {};
+  const config = getCleanConfig(params);
+  store.updateNode(selectedNode.value.id, {
+    params: {
+      ...params,
+      config: {
+        ...config,
+        [name]: value,
+      },
+    },
+  });
+}
+
+function updateListItemField(listName: string, index: number, fieldName: string, value: any) {
+  if (!selectedNode.value) return;
+  const params = selectedNode.value.params || {};
+  const config = getCleanConfig(params);
+  const list = [...(config[listName] || [])];
+  list[index] = {
+    ...list[index],
+    [fieldName]: value,
+  };
+  store.updateNode(selectedNode.value.id, {
+    params: {
+      ...params,
+      config: {
+        ...config,
+        [listName]: list,
+      },
+    },
+  });
+}
+
+function addListItem(listName: string, listFields: any[]) {
+  if (!selectedNode.value) return;
+  const params = selectedNode.value.params || {};
+  const config = getCleanConfig(params);
+  const list = [...(config[listName] || [])];
+  const newItem: any = {};
+  listFields.forEach(field => {
+    newItem[field.name] = field.default || '';
+  });
+  list.push(newItem);
+  store.updateNode(selectedNode.value.id, {
+    params: {
+      ...params,
+      config: {
+        ...config,
+        [listName]: list,
+      },
+    },
+  });
+}
+
+function removeListItem(listName: string, index: number) {
+  if (!selectedNode.value) return;
+  const params = selectedNode.value.params || {};
+  const config = params.config || {};
+  const list = [...(config[listName] || [])];
+  list.splice(index, 1);
+  store.updateNode(selectedNode.value.id, {
+    params: {
+      ...params,
+      config: {
+        ...config,
+        [listName]: list,
+      },
+    },
+  });
 }
 
 function updateLabel() {
@@ -279,42 +369,9 @@ function updateDescription() {
   }
 }
 
-function updateParam(key: string, value: any) {
-  if (selectedNode.value) {
-    store.updateNode(selectedNode.value.id, {
-      params: {
-        ...selectedNode.value.params,
-        [key]: value,
-      },
-    });
-  }
-}
-
-function updateParamFromJson(key: string, jsonStr: string) {
-  try {
-    const value = JSON.parse(jsonStr);
-    updateParam(key, value);
-  } catch {
-    // 忽略无效的JSON
-  }
-}
-
-function updateInputMapping(fieldName: string, value: string) {
-  inputMappings.value[fieldName] = value;
-  if (selectedNode.value) {
-    store.updateNode(selectedNode.value.id, {
-      inputMappings: { ...inputMappings.value },
-    });
-  }
-}
-
 function onCodeValidate(isValid: boolean) {
   codeValid.value = isValid;
 }
-
-onMounted(() => {
-  datasourceStore.fetchDatasources();
-});
 
 function handleDeleteNode() {
   if (selectedNode.value) {
@@ -430,6 +487,21 @@ function handleDeleteNode() {
   margin-bottom: 12px;
 }
 
+.field-header {
+  margin-bottom: 4px;
+}
+
+.field-description {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0 0 8px 0;
+}
+
+.field-required {
+  color: #ef4444;
+  font-weight: 600;
+}
+
 .form-item {
   margin-bottom: 14px;
 }
@@ -446,6 +518,14 @@ function handleDeleteNode() {
   margin-bottom: 6px;
 }
 
+.form-label-sm {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: #4b5563;
+  margin-bottom: 4px;
+}
+
 .form-input {
   width: 100%;
   padding: 8px 12px;
@@ -457,6 +537,11 @@ function handleDeleteNode() {
   outline: none;
   transition: all 0.2s;
   box-sizing: border-box;
+}
+
+.form-input-sm {
+  padding: 6px 10px;
+  font-size: 13px;
 }
 
 .form-input:focus {
@@ -496,115 +581,78 @@ function handleDeleteNode() {
   accent-color: #3b82f6;
 }
 
-.fields-list {
+.code-field-wrapper {
+  margin-top: 4px;
+}
+
+.list-field-wrapper {
+  margin-top: 4px;
+}
+
+.list-items {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
-.field-item {
+.list-item {
   padding: 12px;
   background: #f9fafb;
-  border-radius: 10px;
   border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
 }
 
-.field-header {
+.list-item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.remove-item-btn {
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.field-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: #1f2937;
-}
-
-.field-type {
-  padding: 2px 8px;
-  font-size: 11px;
-  font-weight: 500;
-  color: #6b7280;
-  background: #e5e7eb;
-  border-radius: 999px;
-}
-
-.field-required {
+  justify-content: center;
+  background: transparent;
+  border: none;
   color: #ef4444;
-  font-weight: 600;
-}
-
-.field-desc {
-  font-size: 12px;
-  color: #6b7280;
-  margin: 0 0 8px 0;
-}
-
-.field-mapping {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.mapping-label {
-  font-size: 12px;
-  color: #6b7280;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.2s;
   flex-shrink: 0;
 }
 
-.mapping-input {
-  font-size: 13px;
-  font-family: 'Monaco', 'Menlo', monospace;
-  background: #ffffff;
+.remove-item-btn:hover {
+  background: #fef2f2;
 }
 
-.field-usage {
-  margin-top: 8px;
-}
-
-.field-usage code {
-  padding: 4px 8px;
-  font-size: 12px;
-  font-family: 'Monaco', 'Menlo', monospace;
-  color: #1d4ed8;
-  background: #dbeafe;
-  border-radius: 6px;
-}
-
-.datasource-selector-section {
-  margin-bottom: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.selected-datasource-info {
-  margin-top: 8px;
-  padding: 10px 12px;
-  background: #f0fdf4;
-  border-radius: 8px;
-  border: 1px solid #86efac;
-}
-
-.info-item {
+.add-item-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  font-size: 13px;
-}
-
-.info-label {
-  color: #6b7280;
-  font-weight: 500;
-}
-
-.info-value {
+  width: 100%;
+  padding: 10px 16px;
+  background: #f0fdf4;
+  border: 1px dashed #86efac;
+  border-radius: 8px;
   color: #166534;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.params-list {
+.add-item-btn:hover {
+  background: #dcfce7;
+  border-color: #4ade80;
+}
+
+.fields-container {
   margin-top: 4px;
 }
 
@@ -672,5 +720,9 @@ function handleDeleteNode() {
 .text-empty-desc {
   font-size: 13px;
   color: #9ca3af;
+}
+
+.font-mono {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 }
 </style>

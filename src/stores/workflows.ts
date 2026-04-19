@@ -5,7 +5,7 @@ import type { WorkflowDefinition, SaveWorkflowRequest, WorkflowDefinitionData } 
 import { useAuthStore } from './auth';
 
 // 转换 API 的 WorkflowDefinition 到本地格式
-function mapWorkflowDefinition(wf: WorkflowDefinition) {
+function mapWorkflowDefinition(wf: WorkflowDefinition): LocalWorkflow {
   let definitionData: WorkflowDefinitionData | null = null;
   try {
     definitionData = JSON.parse(wf.definitionJson);
@@ -13,13 +13,17 @@ function mapWorkflowDefinition(wf: WorkflowDefinition) {
     definitionData = { nodes: [], edges: [] };
   }
 
+  const status: 'draft' | 'published' | 'archived' = wf.isDeleted
+    ? 'archived'
+    : (wf.isLatest ? 'published' : 'draft');
+
   return {
     id: wf.workflowId,
     name: wf.name,
     description: wf.description,
     organizationId: '', // 需要从 auth store 获取
     createdBy: wf.createdBy || '',
-    status: wf.isDeleted ? 'archived' : (wf.isLatest ? 'published' : 'draft'),
+    status,
     nodes: definitionData?.nodes || [],
     edges: definitionData?.edges || [],
     createdAt: new Date(wf.createdAt),
@@ -55,7 +59,6 @@ interface LocalWorkflowExecution {
 }
 
 export const useWorkflowsStore = defineStore('workflows', () => {
-  const authStore = useAuthStore();
   const workflows = ref<LocalWorkflow[]>([]);
   const executions = ref<LocalWorkflowExecution[]>([]);
   const currentWorkflow = ref<LocalWorkflow | null>(null);
@@ -95,6 +98,7 @@ export const useWorkflowsStore = defineStore('workflows', () => {
     name: string,
     description?: string
   ): Promise<LocalWorkflow> {
+    const authStore = useAuthStore();
     if (!authStore.currentOrganization) {
       throw new Error('No organization selected');
     }
@@ -180,7 +184,12 @@ export const useWorkflowsStore = defineStore('workflows', () => {
   }
 
   async function deleteWorkflow(id: string): Promise<void> {
-    const response = await workflowApi.deleteWorkflow(id);
+    const authStore = useAuthStore();
+    const workflow = workflows.value.find((w) => w.id === id);
+    const userId = authStore.user?.id;
+    const isOwner = workflow?.createdBy === userId;
+
+    const response = await workflowApi.deleteWorkflow(id, userId, isOwner);
     if (response.success) {
       workflows.value = workflows.value.filter((w) => w.id !== id);
       if (currentWorkflow.value?.id === id) {

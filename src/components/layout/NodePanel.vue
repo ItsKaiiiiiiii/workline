@@ -8,47 +8,70 @@
       <p class="panel-desc">拖拽组件到画布</p>
     </div>
     <div class="panel-content">
-      <div class="node-category">
-        <div class="category-title">开始</div>
-        <div class="node-grid">
-          <NodeItem
-            v-for="node in triggerNodes"
-            :key="node.type"
-            :node="node"
-            @dragstart="handleDragStart"
-          />
-        </div>
+      <div v-if="componentsStore.isLoading" class="loading-state">
+        <div class="loading-spinner" />
+        <span>加载组件中...</span>
       </div>
-      <div class="node-category">
-        <div class="category-title">处理</div>
-        <div class="node-grid">
-          <NodeItem
-            v-for="node in processNodes"
-            :key="node.type"
-            :node="node"
-            @dragstart="handleDragStart"
-          />
-        </div>
+      <div v-else-if="componentsStore.error" class="error-state">
+        <span>{{ componentsStore.error }}</span>
+        <button class="retry-btn" @click="componentsStore.fetchComponents">
+          重试
+        </button>
       </div>
-      <div class="node-category">
-        <div class="category-title">结束</div>
-        <div class="node-grid">
-          <NodeItem
-            v-for="node in endNodes"
-            :key="node.type"
-            :node="node"
-            @dragstart="handleDragStart"
-          />
+      <template v-else>
+        <div v-if="sourceComponents.length > 0" class="node-category">
+          <div class="category-title">起点组件</div>
+          <div class="node-grid">
+            <NodeItem
+              v-for="node in sourceComponents"
+              :key="node.type"
+              :node="node"
+              @dragstart="handleDragStart"
+            />
+          </div>
         </div>
-      </div>
+        <div v-if="virtualComponents.length > 0" class="node-category">
+          <div class="category-title">数据变换</div>
+          <div class="node-grid">
+            <NodeItem
+              v-for="node in virtualComponents"
+              :key="node.type"
+              :node="node"
+              @dragstart="handleDragStart"
+            />
+          </div>
+        </div>
+        <div v-if="standardComponents.length > 0" class="node-category">
+          <div class="category-title">标准组件</div>
+          <div class="node-grid">
+            <NodeItem
+              v-for="node in standardComponents"
+              :key="node.type"
+              :node="node"
+              @dragstart="handleDragStart"
+            />
+          </div>
+        </div>
+        <div v-if="customComponents.length > 0" class="node-category">
+          <div class="category-title">自定义组件</div>
+          <div class="node-grid">
+            <NodeItem
+              v-for="node in customComponents"
+              :key="node.type"
+              :node="node"
+              @dragstart="handleDragStart"
+            />
+          </div>
+        </div>
+      </template>
     </div>
   </aside>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { Package } from 'lucide-vue-next';
-import { NODE_LIBRARY } from '../../config/nodeLibrary';
+import { useComponentsStore } from '../../stores/components';
 import type { NodeConfig } from '../../types';
 import NodeItem from '../node/NodeItem.vue';
 
@@ -56,19 +79,27 @@ const emit = defineEmits<{
   dragstart: [event: DragEvent, node: NodeConfig];
 }>();
 
-const triggerNodes = computed(() =>
-  NODE_LIBRARY.filter((n) => n.type === 'trigger')
+const componentsStore = useComponentsStore();
+
+const sourceComponents = computed(() =>
+  componentsStore.allComponents.filter((n) => n.canBeSource && !n.isVirtual)
 );
 
-const processNodes = computed(() =>
-  NODE_LIBRARY.filter((n) =>
-    ['action', 'condition', 'transform', 'api', 'database'].includes(n.type)
-  )
+const virtualComponents = computed(() =>
+  componentsStore.allComponents.filter((n) => n.isVirtual)
 );
 
-const endNodes = computed(() =>
-  NODE_LIBRARY.filter((n) => ['notification', 'output'].includes(n.type))
+const standardComponents = computed(() =>
+  componentsStore.allComponents.filter((n) => !n.canBeSource && !n.isVirtual && n.category === 'SYSTEM')
 );
+
+const customComponents = computed(() =>
+  componentsStore.allComponents.filter((n) => n.category === 'CUSTOM')
+);
+
+onMounted(() => {
+  componentsStore.fetchComponents();
+});
 
 function handleDragStart(event: DragEvent, node: NodeConfig) {
   emit('dragstart', event, node);
@@ -133,5 +164,46 @@ function handleDragStart(event: DragEvent, node: NodeConfig) {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
+}
+
+.loading-state,
+.error-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 12px;
+  color: #6b7280;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.retry-btn {
+  padding: 8px 16px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s;
+}
+
+.retry-btn:hover {
+  background: #2563eb;
 }
 </style>

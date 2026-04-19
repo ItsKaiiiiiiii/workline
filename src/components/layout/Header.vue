@@ -26,8 +26,8 @@
         <span>导出</span>
       </button>
       <div class="divider"></div>
-      <button class="btn btn-primary" @click="handleSave" :disabled="isSaving">
-        <template v-if="isSaving">
+      <button class="btn btn-primary" @click="handleSave" :disabled="store.isSaving">
+        <template v-if="store.isSaving">
           <Loader2 class="w-4 h-4 animate-spin" />
           <span>保存中...</span>
         </template>
@@ -44,8 +44,11 @@
 import { ref, watch } from 'vue';
 import { Workflow, Trash2, Download, Save, Loader2 } from 'lucide-vue-next';
 import { useWorkflowStore } from '../../stores/workflow';
+import { useAuthStore } from '../../stores/auth';
+import { workflowApi } from '../../services/workflowApi';
 
 const store = useWorkflowStore();
+const authStore = useAuthStore();
 const localName = ref(store.workflowName);
 
 watch(() => store.workflowName, (newName) => {
@@ -75,12 +78,28 @@ function handleExport() {
 }
 
 async function handleSave() {
+  if (!store.workflowName.trim()) {
+    alert('请输入工作流名称');
+    return;
+  }
+
   store.isSaving = true;
-  // 模拟保存
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-  console.log('保存工作流:', store.exportWorkflow());
-  store.isSaving = false;
-  alert('工作流已保存！');
+  try {
+    const definition = store.getWorkflowDefinition();
+    await workflowApi.saveWorkflow({
+      name: store.workflowName,
+      description: store.workflowDescription,
+      createdBy: authStore.user?.username || 'unknown',
+      definition,
+    });
+
+    alert('工作流保存成功！');
+  } catch (error: any) {
+    console.error('保存工作流失败:', error);
+    alert(`保存失败: ${error.message || '未知错误'}`);
+  } finally {
+    store.isSaving = false;
+  }
 }
 </script>
 

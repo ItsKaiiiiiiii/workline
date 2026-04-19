@@ -82,10 +82,26 @@
               <Play class="w-4 h-4" />
               <span>运行</span>
             </button>
+            <button class="card-btn card-btn-danger" @click="handleDelete(workflow)">
+              <Trash2 class="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
     </div>
+
+    <Toast
+      :show="showSuccessToast"
+      :message="toastMessage"
+      type="success"
+      @close="showSuccessToast = false"
+    />
+    <Toast
+      :show="showErrorToast"
+      :message="toastMessage"
+      type="error"
+      @close="showErrorToast = false"
+    />
   </div>
 </template>
 
@@ -100,13 +116,18 @@ import {
   User,
   Eye,
   Play,
+  Trash2,
 } from 'lucide-vue-next';
 import { useWorkflowsStore } from '../../stores/workflows';
 import type { WorkflowExecution } from '../../types/auth';
+import Toast from '../common/Toast.vue';
 
 const workflowsStore = useWorkflowsStore();
 
 const loading = ref(true);
+const showSuccessToast = ref(false);
+const showErrorToast = ref(false);
+const toastMessage = ref('');
 
 const publishedWorkflows = computed(() => workflowsStore.publishedWorkflows);
 
@@ -157,6 +178,30 @@ function handleView(workflow: any) {
 function handleRun(workflow: any) {
   console.log('运行工作流:', workflow);
   alert(`工作流 "${workflow.name}" 已开始运行！`);
+}
+
+function showSuccess(message: string) {
+  toastMessage.value = message;
+  showSuccessToast.value = true;
+}
+
+function showError(message: string) {
+  toastMessage.value = message;
+  showErrorToast.value = true;
+}
+
+async function handleDelete(workflow: any) {
+  if (!confirm(`确定要删除工作流 "${workflow.name}" 吗？`)) {
+    return;
+  }
+
+  try {
+    await workflowsStore.deleteWorkflow(workflow.id);
+    showSuccess('工作流已删除！');
+  } catch (err: any) {
+    console.error('Failed to delete workflow:', err);
+    showError(err.message || '删除失败，请稍后重试');
+  }
 }
 
 onMounted(async () => {
@@ -453,5 +498,15 @@ onMounted(async () => {
 .card-btn:hover {
   background: #f3f4f6;
   border-color: #9ca3af;
+}
+
+.card-btn-danger {
+  color: #ef4444;
+  border-color: #fecaca;
+}
+
+.card-btn-danger:hover {
+  background: #fef2f2;
+  border-color: #ef4444;
 }
 </style>

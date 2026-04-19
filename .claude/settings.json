@@ -8,7 +8,9 @@
       "Bash(git commit:*)",
       "WebSearch",
       "Bash(npm view *)",
-      "Bash(npm search *)"
+      "Bash(npm search *)",
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(pkill -f \"vite\")"
     ]
   }
 }
