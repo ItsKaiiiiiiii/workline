@@ -126,6 +126,26 @@ export interface WorkflowDefinition {
   deletedBy?: string;
 }
 
+// 包含部署状态的工作流列表项（新接口）
+export interface WorkflowListItem {
+  id: number;
+  workflowId: string;
+  name: string;
+  description: string;
+  version: number;
+  definitionJson: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  isLatest: boolean;
+  isDeleted: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
+  deploymentStatus?: 'DEPLOYED' | 'UNDEPLOYED' | 'FAILED';
+  deployedVersion?: number | null;
+  deployedAt?: string | null;
+}
+
 export interface WorkflowDefinitionNode {
   id: string;
   type: string;

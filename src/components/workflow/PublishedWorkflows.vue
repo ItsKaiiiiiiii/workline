@@ -35,8 +35,8 @@
             <div class="workflow-icon">
               <Workflow class="w-6 h-6" />
             </div>
-            <div class="workflow-status-badge" :class="getStatusClass(getLatestStatus(workflow.id))">
-              {{ getStatusText(getLatestStatus(workflow.id)) }}
+            <div class="workflow-status-badge" :class="getDeploymentStatusClass(workflow.deploymentStatus)">
+              {{ getDeploymentStatusText(workflow.deploymentStatus) }}
             </div>
           </div>
 
@@ -78,10 +78,22 @@
               <Eye class="w-4 h-4" />
               <span>查看</span>
             </button>
-            <button class="card-btn" @click="handleRun(workflow)">
-              <Play class="w-4 h-4" />
-              <span>运行</span>
+            <button class="card-btn" @click="handleViewExecutions(workflow)">
+              <List class="w-4 h-4" />
+              <span>执行记录</span>
             </button>
+            <template v-if="workflow.deploymentStatus === 'DEPLOYED'">
+              <button class="card-btn card-btn-warning" @click="handleUndeploy(workflow)">
+                <XCircle class="w-4 h-4" />
+                <span>取消部署</span>
+              </button>
+            </template>
+            <template v-else>
+              <button class="card-btn card-btn-primary" @click="handleDeploy(workflow)">
+                <Rocket class="w-4 h-4" />
+                <span>部署</span>
+              </button>
+            </template>
             <button class="card-btn card-btn-danger" @click="handleDelete(workflow)">
               <Trash2 class="w-4 h-4" />
             </button>
@@ -115,14 +127,18 @@ import {
   Calendar,
   User,
   Eye,
-  Play,
+  List,
   Trash2,
+  Rocket,
+  XCircle,
 } from 'lucide-vue-next';
+import { useRouter } from 'vue-router';
 import { useWorkflowsStore } from '../../stores/workflows';
 import type { WorkflowExecution } from '../../types/auth';
 import Toast from '../common/Toast.vue';
 
 const workflowsStore = useWorkflowsStore();
+const router = useRouter();
 
 const loading = ref(true);
 const showSuccessToast = ref(false);
@@ -160,6 +176,24 @@ function getStatusText(status: string): string {
   return texts[status] || '未知';
 }
 
+function getDeploymentStatusClass(status?: string): string {
+  const classes: Record<string, string> = {
+    DEPLOYED: 'status-deployed',
+    UNDEPLOYED: 'status-undeployed',
+    FAILED: 'status-failed',
+  };
+  return classes[status || ''] || 'status-undeployed';
+}
+
+function getDeploymentStatusText(status?: string): string {
+  const texts: Record<string, string> = {
+    DEPLOYED: '已部署',
+    UNDEPLOYED: '未部署',
+    FAILED: '部署失败',
+  };
+  return texts[status || ''] || '未部署';
+}
+
 function formatDate(date?: Date): string {
   if (!date) return '-';
   return new Date(date).toLocaleDateString('zh-CN');
@@ -172,7 +206,18 @@ function formatTime(date?: Date): string {
 }
 
 function handleView(workflow: any) {
-  console.log('查看工作流:', workflow);
+  router.push({
+    name: 'WorkflowDetail',
+    params: { workflowId: workflow.id }
+  });
+}
+
+function handleViewExecutions(workflow: any) {
+  router.push({
+    name: 'WorkflowExecutions',
+    params: { workflowId: workflow.id },
+    query: { workflowName: workflow.name }
+  });
 }
 
 function handleRun(workflow: any) {
@@ -191,6 +236,11 @@ function showError(message: string) {
 }
 
 async function handleDelete(workflow: any) {
+  if (workflow.deploymentStatus === 'DEPLOYED') {
+    alert('该工作流已部署，如需删除请先取消部署');
+    return;
+  }
+
   if (!confirm(`确定要删除工作流 "${workflow.name}" 吗？`)) {
     return;
   }
@@ -201,6 +251,35 @@ async function handleDelete(workflow: any) {
   } catch (err: any) {
     console.error('Failed to delete workflow:', err);
     showError(err.message || '删除失败，请稍后重试');
+  }
+}
+
+async function handleDeploy(workflow: any) {
+  if (workflow.deploymentStatus === 'DEPLOYED') {
+    alert('该工作流已部署，如需重新部署请先取消部署');
+    return;
+  }
+
+  try {
+    await workflowsStore.deployWorkflow(workflow.id);
+    showSuccess(`工作流 "${workflow.name}" 部署成功！`);
+  } catch (err: any) {
+    console.error('Failed to deploy workflow:', err);
+    showError(err.message || '部署失败，请稍后重试');
+  }
+}
+
+async function handleUndeploy(workflow: any) {
+  if (!confirm(`确定要取消部署工作流 "${workflow.name}" 吗？`)) {
+    return;
+  }
+
+  try {
+    await workflowsStore.undeployWorkflow(workflow.id);
+    showSuccess(`工作流 "${workflow.name}" 已取消部署！`);
+  } catch (err: any) {
+    console.error('Failed to undeploy workflow:', err);
+    showError(err.message || '取消部署失败，请稍后重试');
   }
 }
 
@@ -380,6 +459,16 @@ onMounted(async () => {
   color: #dc2626;
 }
 
+.status-deployed {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.status-undeployed {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
 .card-body {
   padding: 20px;
   flex: 1;
@@ -508,5 +597,25 @@ onMounted(async () => {
 .card-btn-danger:hover {
   background: #fef2f2;
   border-color: #ef4444;
+}
+
+.card-btn-primary {
+  color: #3b82f6;
+  border-color: #bfdbfe;
+}
+
+.card-btn-primary:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+}
+
+.card-btn-warning {
+  color: #f59e0b;
+  border-color: #fed7aa;
+}
+
+.card-btn-warning:hover {
+  background: #fffbeb;
+  border-color: #f59e0b;
 }
 </style>

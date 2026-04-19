@@ -1,6 +1,7 @@
 import api, { type ApiResponse } from '../utils/api';
 import type {
   WorkflowDefinition,
+  WorkflowListItem,
   SaveWorkflowRequest,
   Deployment,
   WorkflowExecution,
@@ -18,9 +19,14 @@ export const workflowApi = {
     return api.post<WorkflowDefinition>('/workflow-definitions', data);
   },
 
-  // 查询所有工作流的最新版本列表
+  // 查询所有工作流的最新版本列表（旧接口）
   async getWorkflows(): Promise<ApiResponse<WorkflowDefinition[]>> {
     return api.get<WorkflowDefinition[]>('/workflow-definitions');
+  },
+
+  // 查询所有工作流的最新版本列表（包含部署状态，新接口）
+  async getWorkflowList(): Promise<ApiResponse<WorkflowListItem[]>> {
+    return api.get<WorkflowListItem[]>('/workflows');
   },
 
   // 根据 workflowId 查询最新版本

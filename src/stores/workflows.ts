@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import workflowApi from '../services/workflowApi';
-import type { WorkflowDefinition, SaveWorkflowRequest, WorkflowDefinitionData } from '../types/api';
+import type { WorkflowDefinition, WorkflowListItem, SaveWorkflowRequest, WorkflowDefinitionData } from '../types/api';
 import { useAuthStore } from './auth';
 
 // 转换 API 的 WorkflowDefinition 到本地格式
@@ -33,6 +33,38 @@ function mapWorkflowDefinition(wf: WorkflowDefinition): LocalWorkflow {
   };
 }
 
+// 转换 API 的 WorkflowListItem 到本地格式
+function mapWorkflowListItem(wf: WorkflowListItem): LocalWorkflow {
+  let definitionData: WorkflowDefinitionData | null = null;
+  try {
+    definitionData = JSON.parse(wf.definitionJson);
+  } catch {
+    definitionData = { nodes: [], edges: [] };
+  }
+
+  const status: 'draft' | 'published' | 'archived' = wf.isDeleted
+    ? 'archived'
+    : (wf.isLatest ? 'published' : 'draft');
+
+  return {
+    id: wf.workflowId,
+    name: wf.name,
+    description: wf.description,
+    organizationId: '',
+    createdBy: wf.createdBy || '',
+    status,
+    nodes: definitionData?.nodes || [],
+    edges: definitionData?.edges || [],
+    createdAt: new Date(wf.createdAt),
+    updatedAt: new Date(wf.updatedAt),
+    publishedAt: wf.isLatest ? new Date(wf.updatedAt) : undefined,
+    version: wf.version,
+    deploymentStatus: wf.deploymentStatus,
+    deployedVersion: wf.deployedVersion,
+    deployedAt: wf.deployedAt ? new Date(wf.deployedAt) : undefined,
+  };
+}
+
 // 本地 Workflow 类型
 interface LocalWorkflow {
   id: string;
@@ -47,6 +79,9 @@ interface LocalWorkflow {
   updatedAt: Date;
   publishedAt?: Date;
   version?: number;
+  deploymentStatus?: 'DEPLOYED' | 'UNDEPLOYED' | 'FAILED';
+  deployedVersion?: number | null;
+  deployedAt?: Date;
 }
 
 interface LocalWorkflowExecution {
@@ -75,12 +110,21 @@ export const useWorkflowsStore = defineStore('workflows', () => {
   async function fetchWorkflows(): Promise<void> {
     isLoading.value = true;
     try {
-      const response = await workflowApi.getWorkflows();
+      const response = await workflowApi.getWorkflowList();
       if (response.success) {
-        workflows.value = response.data.map(mapWorkflowDefinition);
+        workflows.value = response.data.map(mapWorkflowListItem);
       }
     } catch (error) {
       console.error('Failed to fetch workflows:', error);
+      // 如果新接口失败，回退到旧接口
+      try {
+        const fallbackResponse = await workflowApi.getWorkflows();
+        if (fallbackResponse.success) {
+          workflows.value = fallbackResponse.data.map(mapWorkflowDefinition);
+        }
+      } catch (fallbackError) {
+        console.error('Failed to fetch workflows with fallback:', fallbackError);
+      }
     } finally {
       isLoading.value = false;
     }
@@ -198,6 +242,21 @@ export const useWorkflowsStore = defineStore('workflows', () => {
     }
   }
 
+  async function deployWorkflow(id: string, reason?: string): Promise<void> {
+    const authStore = useAuthStore();
+    const deployedBy = authStore.user?.id;
+
+    await workflowApi.deployWorkflow(id, deployedBy, reason);
+    // 部署成功后刷新列表
+    await fetchWorkflows();
+  }
+
+  async function undeployWorkflow(id: string): Promise<void> {
+    await workflowApi.undeployWorkflow(id);
+    // 取消部署成功后刷新列表
+    await fetchWorkflows();
+  }
+
   async function loadWorkflow(workflowId: string): Promise<LocalWorkflow | null> {
     try {
       const response = await workflowApi.getLatestWorkflow(workflowId);
@@ -232,6 +291,8 @@ export const useWorkflowsStore = defineStore('workflows', () => {
     updateWorkflow,
     publishWorkflow,
     deleteWorkflow,
+    deployWorkflow,
+    undeployWorkflow,
     saveWorkflowDefinition,
     loadWorkflow,
   };

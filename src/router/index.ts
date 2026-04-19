@@ -41,6 +41,18 @@ const routes = [
         component: () => import('../components/workflow/PublishedWorkflows.vue'),
       },
       {
+        path: 'workflows/:workflowId/detail',
+        name: 'WorkflowDetail',
+        component: () => import('../components/workflow/WorkflowDetail.vue'),
+        props: true,
+      },
+      {
+        path: 'workflows/:workflowId/executions',
+        name: 'WorkflowExecutions',
+        component: () => import('../components/workflow/WorkflowExecutions.vue'),
+        props: true,
+      },
+      {
         path: 'datasources',
         name: 'Datasources',
         component: () => import('../components/datasource/DatasourceManager.vue'),
