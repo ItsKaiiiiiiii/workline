@@ -69,6 +69,7 @@
           <svg
             :width="viewWidth"
             :height="viewHeight"
+            :viewBox="viewBox"
             class="graph-svg"
             @mousedown="startPan"
             @mousemove="pan"
@@ -301,6 +302,16 @@ const graphHeight = computed(() => {
 
 const viewWidth = computed(() => graphWidth.value);
 const viewHeight = computed(() => graphHeight.value);
+
+const viewBox = computed(() => {
+  // 添加一些边距确保内容不被裁剪
+  const margin = 50;
+  const minX = -margin;
+  const minY = -margin;
+  const width = graphWidth.value + margin * 2;
+  const height = graphHeight.value + margin * 2;
+  return `${minX} ${minY} ${width} ${height}`;
+});
 
 const graphNodes = computed(() => {
   if (!execution.value?.nodes) return [];
@@ -727,10 +738,9 @@ onMounted(() => {
 
 .graph-wrapper {
   padding: 32px;
-  overflow: hidden;
+  overflow: auto;
   background: #f9fafb;
   min-height: 350px;
-  max-height: 500px;
   position: relative;
 }
 
@@ -768,6 +778,7 @@ onMounted(() => {
 
 .graph-svg {
   display: block;
+  overflow: visible;
 }
 
 .edge-line {
