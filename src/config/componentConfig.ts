@@ -162,13 +162,23 @@ export const COMPONENT_CONFIGS: Record<string, ComponentConfig> = {
 
   FTP: {
     type: 'FTP',
-    label: 'FTP/SFTP 监听',
+    label: 'FTP/SFTP',
     icon: 'Upload',
     color: '#8b5cf6',
     bgColor: '#f5f3ff',
-    inputs: [],
+    inputs: ['input'],
     outputs: ['output'],
     fields: [
+      {
+        name: 'mode',
+        label: '模式',
+        type: 'select',
+        default: 'listen',
+        options: [
+          { label: '监听模式', value: 'listen' },
+          { label: '上传模式', value: 'upload' },
+        ],
+      },
       {
         name: 'host',
         label: '服务器地址',
@@ -204,18 +214,25 @@ export const COMPONENT_CONFIGS: Record<string, ComponentConfig> = {
         placeholder: '/',
       },
       {
+        name: 'fileName',
+        label: '远程文件名',
+        type: 'string',
+        placeholder: 'data.json',
+        description: '远程文件名（上传模式）',
+      },
+      {
         name: 'include',
         label: '包含文件（正则）',
         type: 'string',
         placeholder: '.*\\.xml$',
-        description: '文件名正则（包含）',
+        description: '文件名正则（包含，监听模式）',
       },
       {
         name: 'exclude',
         label: '排除文件（正则）',
         type: 'string',
         placeholder: '.*\\.tmp$',
-        description: '文件名正则（排除）',
+        description: '文件名正则（排除，监听模式）',
       },
       {
         name: 'delay',
@@ -223,14 +240,28 @@ export const COMPONENT_CONFIGS: Record<string, ComponentConfig> = {
         type: 'number',
         default: 500,
         placeholder: '500',
-        description: '检查间隔（毫秒）',
+        description: '检查间隔（毫秒，监听模式）',
+      },
+      {
+        name: 'fileExist',
+        label: '文件存在策略',
+        type: 'select',
+        default: 'Override',
+        options: [
+          { label: '覆盖 (Override)', value: 'Override' },
+          { label: '追加 (Append)', value: 'Append' },
+          { label: '抛出异常 (Fail)', value: 'Fail' },
+          { label: '忽略 (Ignore)', value: 'Ignore' },
+          { label: '移动旧文件 (Move)', value: 'Move' },
+        ],
+        description: '文件存在时的策略（上传模式）',
       },
       {
         name: 'delete',
         label: '下载后删除',
         type: 'boolean',
         default: false,
-        description: '下载后是否删除远程文件',
+        description: '下载后是否删除远程文件（监听模式）',
       },
       {
         name: 'binary',
