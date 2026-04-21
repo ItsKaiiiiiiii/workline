@@ -31,6 +31,7 @@
           v-for="execution in executions"
           :key="execution.executionId"
           class="execution-card"
+          @click="handleViewExecution(execution)"
         >
           <div class="execution-header">
             <div class="execution-id">{{ execution.executionId }}</div>
@@ -143,6 +144,13 @@ const toastMessage = ref('');
 
 function goBack() {
   router.back();
+}
+
+function handleViewExecution(execution: any) {
+  router.push({
+    name: 'ExecutionDetail',
+    params: { executionId: execution.executionId }
+  });
 }
 
 function getStatusClass(status: string): string {
@@ -322,6 +330,14 @@ onMounted(() => {
   border: 1px solid #e5e7eb;
   border-radius: 16px;
   overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.execution-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.1);
+  border-color: #3b82f6;
 }
 
 .execution-header {

@@ -46,9 +46,26 @@
           <Database class="w-5 h-5" />
           <span v-if="!sidebarCollapsed">数据源管理</span>
         </router-link>
+        <router-link
+          to="/members"
+          class="nav-item"
+          :class="{ active: $route.path === '/members' }"
+          :title="sidebarCollapsed ? '成员管理' : ''"
+        >
+          <Users class="w-5 h-5" />
+          <span v-if="!sidebarCollapsed">成员管理</span>
+        </router-link>
       </nav>
 
       <div v-if="!sidebarCollapsed" class="sidebar-footer">
+        <button
+          v-if="pendingInvitationCount > 0"
+          class="invitation-badge-btn"
+          @click="showPendingInvitations = true"
+        >
+          <Bell class="w-4 h-4" />
+          <span class="invitation-count">{{ pendingInvitationCount }}</span>
+        </button>
         <button class="user-info-btn" @click="showUserProfile = true">
           <div class="user-avatar">
             {{ user?.nickname?.charAt(0).toUpperCase() || user?.username?.charAt(0).toUpperCase() || 'U' }}
@@ -61,6 +78,14 @@
       </div>
 
       <div v-if="sidebarCollapsed" class="sidebar-footer-collapsed">
+        <button
+          v-if="pendingInvitationCount > 0"
+          class="invitation-badge-btn-collapsed"
+          @click="showPendingInvitations = true"
+        >
+          <Bell class="w-4 h-4" />
+          <span class="invitation-count-collapsed">{{ pendingInvitationCount }}</span>
+        </button>
         <button class="user-info-btn-collapsed" @click="showUserProfile = true">
           <div class="user-avatar">
             {{ user?.nickname?.charAt(0).toUpperCase() || user?.username?.charAt(0).toUpperCase() || 'U' }}
@@ -82,6 +107,12 @@
     <UserProfile
       :show="showUserProfile"
       @close="showUserProfile = false"
+    />
+
+    <PendingInvitationsModal
+      :show="showPendingInvitations"
+      @close="showPendingInvitations = false"
+      @accepted="handleInvitationAccepted"
     />
 
     <Toast
@@ -185,10 +216,14 @@ import {
   Plus,
   Check,
   Database,
+  Users,
+  Bell,
 } from 'lucide-vue-next';
 import { useAuthStore } from '../../stores/auth';
 import type { ApiError } from '../../utils/api';
+import organizationApi from '../../services/organizationApi';
 import UserProfile from '../auth/UserProfile.vue';
+import PendingInvitationsModal from '../organization/PendingInvitationsModal.vue';
 import Toast from '../common/Toast.vue';
 
 const authStore = useAuthStore();
@@ -201,6 +236,8 @@ const currentOrg = computed(() => authStore.currentOrganization);
 const showOrgModal = ref(false);
 const showCreateOrgModal = ref(false);
 const showUserProfile = ref(false);
+const showPendingInvitations = ref(false);
+const pendingInvitationCount = ref(0);
 const newOrgName = ref('');
 const newOrgDesc = ref('');
 const createOrgError = ref('');
@@ -245,6 +282,27 @@ async function handleCreateOrg() {
     }
   }
 }
+
+async function loadPendingInvitations() {
+  try {
+    const response = await organizationApi.getPendingInvitations();
+    if (response.success) {
+      pendingInvitationCount.value = response.data.length;
+    }
+  } catch (err) {
+    console.error('Failed to load pending invitations:', err);
+  }
+}
+
+function handleInvitationAccepted() {
+  loadPendingInvitations();
+  authStore.fetchOrganizations();
+}
+
+onMounted(() => {
+  loadPendingInvitations();
+});
+
 </script>
 
 <style scoped>
@@ -388,6 +446,83 @@ async function handleCreateOrg() {
 .sidebar-footer {
   padding: 16px;
   border-top: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.invitation-badge-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border: none;
+  border-radius: 10px;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.invitation-badge-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+.invitation-count {
+  background: #ffffff;
+  color: #d97706;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sidebar-footer-collapsed {
+  padding: 16px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+}
+
+.invitation-badge-btn-collapsed {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border: none;
+  border-radius: 10px;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.invitation-badge-btn-collapsed:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+.invitation-count-collapsed {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #ef4444;
+  color: #ffffff;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .user-info-btn {
@@ -460,13 +595,6 @@ async function handleCreateOrg() {
 
 .sidebar.collapsed .nav-item span {
   display: none;
-}
-
-.sidebar-footer-collapsed {
-  padding: 16px;
-  border-top: 1px solid #e5e7eb;
-  display: flex;
-  justify-content: center;
 }
 
 .user-info-btn-collapsed {

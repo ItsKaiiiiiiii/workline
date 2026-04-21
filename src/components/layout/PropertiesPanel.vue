@@ -158,22 +158,6 @@
         </div>
       </div>
 
-      <!-- 输出转换代码 -->
-      <div class="section section-code">
-        <div class="section-title">
-          <Code2 class="w-4 h-4" />
-          <span>输出转换</span>
-        </div>
-        <p class="section-desc">
-          编写自定义代码来处理节点的输出数据，提取你需要的字段供下游组件使用。
-        </p>
-        <CodeEditor
-          v-model="outputTransform"
-          :default-code="currentNodeConfig?.defaultOutputTransform"
-          @validate="onCodeValidate"
-        />
-      </div>
-
       <div class="section">
         <div class="section-title">
           <Link class="w-4 h-4" />
@@ -207,14 +191,13 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { Settings, Sliders, Link, MousePointerClick, Code2, Trash2, Plus } from 'lucide-vue-next';
+import { Settings, Sliders, Link, MousePointerClick, Trash2, Plus } from 'lucide-vue-next';
 import * as Icons from 'lucide-vue-next';
 import { useWorkflowStore } from '../../stores/workflow';
 import { useDatasourceStore } from '../../stores/datasource';
 import { useComponentsStore } from '../../stores/components';
 import { getComponentConfig, type ComponentConfig } from '../../config/componentConfig';
 import type { NodeConfig } from '../../types';
-import CodeEditor from '../node/CodeEditor.vue';
 
 const store = useWorkflowStore();
 const datasourceStore = useDatasourceStore();
@@ -222,22 +205,13 @@ const componentsStore = useComponentsStore();
 
 const localLabel = ref('');
 const localDescription = ref('');
-const outputTransform = ref('');
-const codeValid = ref(true);
 
 watch(() => store.selectedNode, (node) => {
   if (node) {
     localLabel.value = node.label;
     localDescription.value = node.description || '';
-    outputTransform.value = node.outputTransform || currentNodeConfig.value?.defaultOutputTransform || '';
   }
 }, { immediate: true });
-
-watch(outputTransform, (newVal) => {
-  if (selectedNode.value) {
-    store.updateNode(selectedNode.value.id, { outputTransform: newVal });
-  }
-});
 
 const selectedNode = computed(() => store.selectedNode);
 
@@ -369,10 +343,6 @@ function updateDescription() {
   }
 }
 
-function onCodeValidate(isValid: boolean) {
-  codeValid.value = isValid;
-}
-
 function handleDeleteNode() {
   if (selectedNode.value) {
     store.removeNode(selectedNode.value.id);
@@ -412,17 +382,6 @@ function handleDeleteNode() {
 .section {
   padding: 16px;
   border-bottom: 1px solid #f3f4f6;
-}
-
-.section-code {
-  background: #fafafa;
-}
-
-.section-desc {
-  font-size: 13px;
-  color: #6b7280;
-  margin: 0 0 12px 0;
-  line-height: 1.5;
 }
 
 .node-info {

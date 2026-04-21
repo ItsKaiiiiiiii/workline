@@ -53,9 +53,20 @@ const routes = [
         props: true,
       },
       {
+        path: 'workflows/executions/:executionId',
+        name: 'ExecutionDetail',
+        component: () => import('../components/workflow/ExecutionDetail.vue'),
+        props: true,
+      },
+      {
         path: 'datasources',
         name: 'Datasources',
         component: () => import('../components/datasource/DatasourceManager.vue'),
+      },
+      {
+        path: 'members',
+        name: 'Members',
+        component: () => import('../components/organization/MemberManager.vue'),
       },
     ],
   },
