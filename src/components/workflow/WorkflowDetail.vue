@@ -413,11 +413,8 @@ onMounted(() => {
 
 <style scoped>
 .workflow-detail {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
   background: #f8fafc;
-  overflow: hidden;
+  min-height: 100vh;
 }
 
 .page-header {
@@ -426,7 +423,9 @@ onMounted(() => {
   padding: 24px 32px;
   background: #ffffff;
   border-bottom: 1px solid #e5e7eb;
-  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .header-left {
@@ -476,13 +475,10 @@ onMounted(() => {
 }
 
 .detail-container {
-  flex: 1;
   padding: 32px;
   display: flex;
   flex-direction: column;
   gap: 24px;
-  overflow-y: auto;
-  min-height: 0;
 }
 
 .info-card,
