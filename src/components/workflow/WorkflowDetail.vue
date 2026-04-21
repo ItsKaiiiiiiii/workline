@@ -62,6 +62,92 @@
         </div>
       </div>
 
+      <!-- 工作流可视化图 -->
+      <div v-if="workflowDefinition" class="graph-card">
+        <div class="card-header">
+          <h3 class="card-title">工作流预览</h3>
+          <div class="graph-controls">
+            <button class="zoom-btn" @click="resetView" title="重置视图">
+              <RefreshCw class="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+        <div class="graph-wrapper" ref="graphContainer" :class="{ 'grabbing': isPanning }">
+          <svg
+            :width="viewWidth"
+            :height="viewHeight"
+            :viewBox="viewBox"
+            class="graph-svg"
+            @mousedown="startPan"
+            @mousemove="pan"
+            @mouseup="endPan"
+            @mouseleave="endPan"
+            :style="{ cursor: isPanning ? 'grabbing' : 'grab' }"
+          >
+            <defs>
+              <marker id="arrowhead-workflow" markerWidth="12" markerHeight="8" refX="11" refY="4" orient="auto">
+                <polygon points="0 0, 12 4, 0 8" fill="#9ca3af" />
+              </marker>
+            </defs>
+            <g :transform="`translate(${panX}, ${panY})`">
+              <g class="edges">
+                <line
+                  v-for="edge in graphEdges"
+                  :key="edge.id"
+                  :x1="edge.x1"
+                  :y1="edge.y1"
+                  :x2="edge.x2"
+                  :y2="edge.y2"
+                  class="edge-line"
+                  marker-end="url(#arrowhead-workflow)"
+                />
+              </g>
+              <g class="nodes">
+                <g
+                  v-for="node in graphNodes"
+                  :key="node.id"
+                  :transform="`translate(${node.x}, ${node.y})`"
+                  class="graph-node"
+                >
+                  <rect
+                    :width="nodeWidth"
+                    :height="nodeHeight"
+                    :rx="16"
+                    :fill="node.bgColor"
+                    stroke="node.color"
+                    stroke-width="2"
+                  />
+                  <rect
+                    :width="nodeWidth"
+                    :height="nodeHeight"
+                    :rx="16"
+                    class="node-bg"
+                    :style="{ fill: node.bgColor, stroke: node.color }"
+                  />
+                  <text
+                    :x="nodeWidth / 2"
+                    :y="30"
+                    text-anchor="middle"
+                    class="node-name"
+                  >
+                    {{ node.name }}
+                  </text>
+                  <text
+                    :x="nodeWidth / 2"
+                    :y="52"
+                    text-anchor="middle"
+                    class="node-type"
+                  >
+                    {{ node.type }}
+                  </text>
+                </g>
+              </g>
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      <!-- 工作流定义详情 -->
       <div v-if="workflowDefinition" class="definition-card">
         <div class="card-header">
           <h3 class="card-title">工作流定义</h3>
@@ -104,10 +190,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { ArrowLeft, Loader2, Workflow, ArrowRight } from 'lucide-vue-next';
+import { ArrowLeft, Loader2, Workflow, ArrowRight, RefreshCw } from 'lucide-vue-next';
 import workflowApi from '../../services/workflowApi';
+import { getComponentConfig } from '../../config/componentConfig';
 import Toast from '../common/Toast.vue';
 
 const router = useRouter();
@@ -117,9 +204,111 @@ const workflowId = ref(route.params.workflowId as string);
 const loading = ref(true);
 const workflow = ref<any>(null);
 const workflowDefinition = ref<any>(null);
+const graphContainer = ref<HTMLElement | null>(null);
 
 const showErrorToast = ref(false);
 const toastMessage = ref('');
+
+// 平移相关状态
+const panX = ref(0);
+const panY = ref(0);
+const isPanning = ref(false);
+const startPanX = ref(0);
+const startPanY = ref(0);
+const startMouseX = ref(0);
+const startMouseY = ref(0);
+
+const nodeWidth = 200;
+const nodeHeight = 64;
+const nodeSpacingX = 260;
+const nodeSpacingY = 100;
+
+const graphNodes = computed(() => {
+  if (!workflowDefinition.value?.nodes) return [];
+
+  const nodes = workflowDefinition.value.nodes as any[];
+
+  const positionedNodes = nodes.map((node, index) => {
+    const config = getComponentConfig(node.type);
+    return {
+      id: node.id,
+      name: node.label?.length > 12 ? node.label.substring(0, 12) + '...' : node.label || node.id,
+      fullName: node.label || node.id,
+      type: node.type,
+      color: config?.color || '#3b82f6',
+      bgColor: config?.bgColor || '#eff6ff',
+      x: 40,
+      y: 40,
+      rawNode: node,
+    };
+  });
+
+  const columns: any[][] = [];
+  positionedNodes.forEach((node, index) => {
+    const colIndex = Math.floor(index / 3);
+    if (!columns[colIndex]) columns[colIndex] = [];
+    columns[colIndex].push(node);
+  });
+
+  columns.forEach((col, colIndex) => {
+    col.forEach((node, rowIndex) => {
+      node.x = 50 + colIndex * nodeSpacingX;
+      node.y = 50 + rowIndex * nodeSpacingY;
+    });
+  });
+
+  return positionedNodes;
+});
+
+const graphEdges = computed(() => {
+  if (!workflowDefinition.value?.edges) return [];
+
+  const edges: any[] = [];
+  const nodes = graphNodes.value;
+  const nodeMap = new Map(nodes.map(n => [n.id, n]));
+
+  workflowDefinition.value.edges.forEach((edge: any) => {
+    const sourceId = edge.sourceNodeId || edge.source;
+    const targetId = edge.targetNodeId || edge.target;
+    if (sourceId && targetId && nodeMap.has(sourceId) && nodeMap.has(targetId)) {
+      const source = nodeMap.get(sourceId)!;
+      const target = nodeMap.get(targetId)!;
+      edges.push({
+        id: edge.id || `${sourceId}-${targetId}`,
+        x1: source.x + nodeWidth,
+        y1: source.y + nodeHeight / 2,
+        x2: target.x,
+        y2: target.y + nodeHeight / 2,
+      });
+    }
+  });
+
+  return edges;
+});
+
+const graphWidth = computed(() => {
+  if (!graphNodes.value.length) return 800;
+  const maxX = Math.max(...graphNodes.value.map(n => n.x)) + nodeWidth + 60;
+  return Math.max(800, maxX);
+});
+
+const graphHeight = computed(() => {
+  if (!graphNodes.value.length) return 400;
+  const maxY = Math.max(...graphNodes.value.map(n => n.y)) + nodeHeight + 60;
+  return Math.max(400, maxY);
+});
+
+const viewWidth = computed(() => graphWidth.value);
+const viewHeight = computed(() => graphHeight.value);
+
+const viewBox = computed(() => {
+  const margin = 50;
+  const minX = -margin;
+  const minY = -margin;
+  const width = graphWidth.value + margin * 2;
+  const height = graphHeight.value + margin * 2;
+  return `${minX} ${minY} ${width} ${height}`;
+});
 
 function goBack() {
   router.back();
@@ -133,6 +322,31 @@ function formatDateTime(dateStr: string): string {
 function showError(message: string) {
   toastMessage.value = message;
   showErrorToast.value = true;
+}
+
+function startPan(event: MouseEvent) {
+  isPanning.value = true;
+  startPanX.value = panX.value;
+  startPanY.value = panY.value;
+  startMouseX.value = event.clientX;
+  startMouseY.value = event.clientY;
+}
+
+function pan(event: MouseEvent) {
+  if (!isPanning.value) return;
+  const dx = event.clientX - startMouseX.value;
+  const dy = event.clientY - startMouseY.value;
+  panX.value = startPanX.value + dx;
+  panY.value = startPanY.value + dy;
+}
+
+function endPan() {
+  isPanning.value = false;
+}
+
+function resetView() {
+  panX.value = 0;
+  panY.value = 0;
 }
 
 async function loadWorkflowDetail() {
@@ -425,5 +639,102 @@ onMounted(() => {
   color: #9ca3af;
   padding: 20px;
   text-align: center;
+}
+
+.graph-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.graph-card .card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.graph-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.zoom-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.zoom-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
+  border-color: #d1d5db;
+}
+
+.graph-wrapper {
+  padding: 32px;
+  overflow: auto;
+  background: #f9fafb;
+  min-height: 350px;
+  position: relative;
+}
+
+.graph-wrapper.grabbing {
+  user-select: none;
+}
+
+.graph-svg {
+  display: block;
+  overflow: visible;
+}
+
+.edge-line {
+  stroke: #9ca3af;
+  stroke-width: 2;
+  fill: none;
+}
+
+.graph-node {
+  cursor: pointer;
+}
+
+.graph-node:hover .node-bg {
+  filter: brightness(0.98);
+}
+
+.node-bg {
+  fill: #ffffff;
+  stroke: #e5e7eb;
+  stroke-width: 2;
+}
+
+.node-name {
+  font-size: 14px;
+  font-weight: 600;
+  fill: #1f2937;
+}
+
+.node-type {
+  font-size: 11px;
+  fill: #6b7280;
+}
+
+.detail-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-height: 0;
 }
 </style>
