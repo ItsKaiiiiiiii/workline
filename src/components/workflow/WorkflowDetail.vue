@@ -415,8 +415,9 @@ onMounted(() => {
 .workflow-detail {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
   background: #f8fafc;
+  overflow: hidden;
 }
 
 .page-header {
@@ -475,11 +476,13 @@ onMounted(() => {
 }
 
 .detail-container {
+  flex: 1;
   padding: 32px;
   display: flex;
   flex-direction: column;
   gap: 24px;
   overflow-y: auto;
+  min-height: 0;
 }
 
 .info-card,
