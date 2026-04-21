@@ -60,8 +60,22 @@
             </div>
           </div>
         </div>
-        <div class="graph-wrapper" ref="graphContainer">
-          <svg :width="graphWidth" :height="graphHeight" class="graph-svg">
+        <div class="graph-wrapper" ref="graphContainer" :class="{ 'grabbing': isPanning }">
+          <div class="graph-controls">
+            <button class="zoom-btn" @click="resetView" title="重置视图">
+              <RefreshCw class="w-4 h-4" />
+            </button>
+          </div>
+          <svg
+            :width="viewWidth"
+            :height="viewHeight"
+            class="graph-svg"
+            @mousedown="startPan"
+            @mousemove="pan"
+            @mouseup="endPan"
+            @mouseleave="endPan"
+            :style="{ cursor: isPanning ? 'grabbing' : 'grab' }"
+          >
             <defs>
               <marker id="arrowhead" markerWidth="12" markerHeight="8" refX="11" refY="4" orient="auto">
                 <polygon points="0 0, 12 4, 0 8" fill="#9ca3af" />
@@ -77,76 +91,78 @@
                 </feMerge>
               </filter>
             </defs>
-            <g class="edges">
-              <line
-                v-for="edge in graphEdges"
-                :key="edge.id"
-                :x1="edge.x1"
-                :y1="edge.y1"
-                :x2="edge.x2"
-                :y2="edge.y2"
-                :class="['edge-line', edge.class]"
-                :marker-end="edge.isFailed ? 'url(#arrowhead-failed)' : 'url(#arrowhead)'"
-              />
-            </g>
-            <g class="nodes">
-              <g
-                v-for="node in graphNodes"
-                :key="node.id"
-                :transform="`translate(${node.x}, ${node.y})`"
-                :class="['graph-node', node.class]"
-              >
-                <rect
-                  v-if="node.isFailed"
-                  :width="nodeWidth"
-                  :height="nodeHeight"
-                  :rx="16"
-                  class="node-failure-glow"
-                  filter="url(#glow)"
+            <g :transform="`translate(${panX}, ${panY})`">
+              <g class="edges">
+                <line
+                  v-for="edge in graphEdges"
+                  :key="edge.id"
+                  :x1="edge.x1"
+                  :y1="edge.y1"
+                  :x2="edge.x2"
+                  :y2="edge.y2"
+                  :class="['edge-line', edge.class]"
+                  :marker-end="edge.isFailed ? 'url(#arrowhead-failed)' : 'url(#arrowhead)'"
                 />
-                <rect
-                  :width="nodeWidth"
-                  :height="nodeHeight"
-                  :rx="16"
-                  class="node-bg"
-                />
-                <circle
-                  :cx="24"
-                  :cy="24"
-                  r="12"
-                  :class="['node-status-circle', node.statusClass]"
-                />
-                <text
-                  :x="24"
-                  :y="28"
-                  text-anchor="middle"
-                  class="node-status-icon"
+              </g>
+              <g class="nodes">
+                <g
+                  v-for="node in graphNodes"
+                  :key="node.id"
+                  :transform="`translate(${node.x}, ${node.y})`"
+                  :class="['graph-node', node.class]"
                 >
-                  {{ node.statusIcon }}
-                </text>
-                <text
-                  :x="44"
-                  :y="28"
-                  class="node-name"
-                >
-                  {{ node.name }}
-                </text>
-                <text
-                  :x="44"
-                  :y="48"
-                  class="node-type"
-                >
-                  {{ node.type }}
-                </text>
-                <text
-                  v-if="node.duration"
-                  :x="nodeWidth / 2"
-                  :y="66"
-                  text-anchor="middle"
-                  class="node-duration"
-                >
-                  {{ node.duration }}
-                </text>
+                  <rect
+                    v-if="node.isFailed"
+                    :width="nodeWidth"
+                    :height="nodeHeight"
+                    :rx="16"
+                    class="node-failure-glow"
+                    filter="url(#glow)"
+                  />
+                  <rect
+                    :width="nodeWidth"
+                    :height="nodeHeight"
+                    :rx="16"
+                    class="node-bg"
+                  />
+                  <circle
+                    :cx="24"
+                    :cy="24"
+                    r="12"
+                    :class="['node-status-circle', node.statusClass]"
+                  />
+                  <text
+                    :x="24"
+                    :y="28"
+                    text-anchor="middle"
+                    class="node-status-icon"
+                  >
+                    {{ node.statusIcon }}
+                  </text>
+                  <text
+                    :x="44"
+                    :y="28"
+                    class="node-name"
+                  >
+                    {{ node.name }}
+                  </text>
+                  <text
+                    :x="44"
+                    :y="48"
+                    class="node-type"
+                  >
+                    {{ node.type }}
+                  </text>
+                  <text
+                    v-if="node.duration"
+                    :x="nodeWidth / 2"
+                    :y="66"
+                    text-anchor="middle"
+                    class="node-duration"
+                  >
+                    {{ node.duration }}
+                  </text>
+                </g>
               </g>
             </g>
           </svg>
@@ -234,7 +250,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { ArrowLeft, Loader2, AlertCircle, ChevronDown } from 'lucide-vue-next';
+import { ArrowLeft, Loader2, AlertCircle, ChevronDown, RefreshCw } from 'lucide-vue-next';
 import workflowApi from '../../services/workflowApi';
 import Toast from '../common/Toast.vue';
 
@@ -246,6 +262,15 @@ const loading = ref(true);
 const execution = ref<any>(null);
 const graphContainer = ref<HTMLElement | null>(null);
 const showDetails = ref(false);
+
+// 平移相关状态
+const panX = ref(0);
+const panY = ref(0);
+const isPanning = ref(false);
+const startPanX = ref(0);
+const startPanY = ref(0);
+const startMouseX = ref(0);
+const startMouseY = ref(0);
 
 const nodeWidth = 240;
 const nodeHeight = 64;
@@ -273,6 +298,9 @@ const graphHeight = computed(() => {
   const maxY = Math.max(...graphNodes.value.map(n => n.y)) + nodeHeight + 60;
   return Math.max(450, maxY);
 });
+
+const viewWidth = computed(() => graphWidth.value);
+const viewHeight = computed(() => graphHeight.value);
 
 const graphNodes = computed(() => {
   if (!execution.value?.nodes) return [];
@@ -426,6 +454,43 @@ function showError(message: string) {
   showErrorToast.value = true;
 }
 
+function startPan(event: MouseEvent) {
+  isPanning.value = true;
+  startPanX.value = panX.value;
+  startPanY.value = panY.value;
+  startMouseX.value = event.clientX;
+  startMouseY.value = event.clientY;
+}
+
+function pan(event: MouseEvent) {
+  if (!isPanning.value) return;
+  const dx = event.clientX - startMouseX.value;
+  const dy = event.clientY - startMouseY.value;
+  panX.value = startPanX.value + dx;
+  panY.value = startPanY.value + dy;
+}
+
+function endPan() {
+  isPanning.value = false;
+}
+
+function resetView() {
+  panX.value = 0;
+  panY.value = 0;
+}
+
+function panToFailedNode() {
+  if (!execution.value?.nodes) return;
+  const failedNode = graphNodes.value.find(n => n.isFailed);
+  if (failedNode) {
+    // 平移到失败节点，让它在视图中居中
+    const containerWidth = graphContainer.value?.clientWidth || 800;
+    const containerHeight = graphContainer.value?.clientHeight || 400;
+    panX.value = (containerWidth / 2) - failedNode.x - (nodeWidth / 2);
+    panY.value = (containerHeight / 2) - failedNode.y - (nodeHeight / 2);
+  }
+}
+
 async function loadExecutionDetail() {
   loading.value = true;
   try {
@@ -435,6 +500,10 @@ async function loadExecutionDetail() {
       if (response.data.nodes?.some((n: any) => n.status === 'FAILED')) {
         showDetails.value = true;
       }
+      // 等待 DOM 更新后平移到失败节点
+      setTimeout(() => {
+        panToFailedNode();
+      }, 100);
     }
   } catch (err: any) {
     console.error('Failed to load execution detail:', err);
@@ -656,10 +725,42 @@ onMounted(() => {
 
 .graph-wrapper {
   padding: 32px;
-  overflow-x: auto;
-  overflow-y: auto;
+  overflow: hidden;
   background: #f9fafb;
   min-height: 350px;
+  position: relative;
+}
+
+.graph-wrapper.grabbing {
+  user-select: none;
+}
+
+.graph-controls {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 10;
+}
+
+.zoom-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.zoom-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
+  border-color: #d1d5db;
 }
 
 .graph-svg {
