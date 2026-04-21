@@ -201,54 +201,6 @@
         </div>
       </div>
 
-      <div class="collapsible-section">
-        <button class="section-toggle" @click="showDetails = !showDetails">
-          <span class="toggle-icon" :class="{ 'rotated': showDetails }">
-            <ChevronDown class="w-5 h-5" />
-          </span>
-          <span class="toggle-text">详细信息</span>
-        </button>
-        <div v-show="showDetails" class="section-content">
-          <div class="info-grid">
-            <div class="info-item">
-              <div class="info-label">工作流 ID</div>
-              <div class="info-value mono">{{ execution.workflowId }}</div>
-            </div>
-            <div class="info-item">
-              <div class="info-label">版本</div>
-              <div class="info-value">v{{ execution.workflowVersion }}</div>
-            </div>
-            <div class="info-item">
-              <div class="info-label">开始时间</div>
-              <div class="info-value">{{ formatDateTime(execution.startedAt) }}</div>
-            </div>
-            <div class="info-item">
-              <div class="info-label">结束时间</div>
-              <div class="info-value">{{ formatDateTime(execution.endedAt) }}</div>
-            </div>
-            <div class="info-item" v-if="execution.routeId">
-              <div class="info-label">路由 ID</div>
-              <div class="info-value mono">{{ execution.routeId }}</div>
-            </div>
-            <div class="info-item" v-if="execution.deploymentId">
-              <div class="info-label">部署 ID</div>
-              <div class="info-value mono">{{ execution.deploymentId }}</div>
-            </div>
-          </div>
-
-          <div v-if="execution.inputSummary || execution.outputSummary" class="summaries-section">
-            <div v-if="execution.inputSummary" class="summary-box">
-              <div class="summary-title">输入摘要</div>
-              <div class="summary-content">{{ execution.inputSummary }}</div>
-            </div>
-            <div v-if="execution.outputSummary" class="summary-box">
-              <div class="summary-title">输出摘要</div>
-              <div class="summary-content">{{ execution.outputSummary }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
     </div>
 
     <Toast
@@ -305,7 +257,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { ArrowLeft, Loader2, AlertCircle, ChevronDown, RefreshCw, X } from 'lucide-vue-next';
+import { ArrowLeft, Loader2, AlertCircle, RefreshCw, X } from 'lucide-vue-next';
 import workflowApi from '../../services/workflowApi';
 import Toast from '../common/Toast.vue';
 
@@ -316,7 +268,6 @@ const executionId = ref(route.params.executionId as string);
 const loading = ref(true);
 const execution = ref<any>(null);
 const graphContainer = ref<HTMLElement | null>(null);
-const showDetails = ref(false);
 const showStacktrace = ref(false);
 const showNodeDetail = ref(false);
 const selectedNodeDetail = ref<any>(null);
@@ -580,9 +531,6 @@ async function loadExecutionDetail() {
     const response = await workflowApi.getExecutionDetail(executionId.value);
     if (response.success) {
       execution.value = response.data;
-      if (response.data.nodes?.some((n: any) => n.status === 'FAILED')) {
-        showDetails.value = true;
-      }
       // 等待 DOM 更新后平移到失败节点
       setTimeout(() => {
         panToFailedNode();
@@ -1058,114 +1006,6 @@ onMounted(() => {
   color: #6b7280;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-}
-
-.collapsible-section {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  overflow: hidden;
-}
-
-.section-toggle {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 16px 20px;
-  background: transparent;
-  border: none;
-  color: #1f2937;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.section-toggle:hover {
-  background: #f9fafb;
-}
-
-.toggle-icon {
-  transition: transform 0.2s;
-  color: #6b7280;
-}
-
-.toggle-icon.rotated {
-  transform: rotate(180deg);
-}
-
-.toggle-text {
-  flex: 1;
-  text-align: left;
-}
-
-.section-content {
-  padding: 0 24px 24px 24px;
-  border-top: 1px solid #e5e7eb;
-}
-
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 20px;
-  padding: 20px 0;
-}
-
-.info-item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.info-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: #9ca3af;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.info-value {
-  font-size: 14px;
-  color: #374151;
-  line-height: 1.5;
-  word-break: break-word;
-  overflow-wrap: anywhere;
-}
-
-.summaries-section {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  padding-top: 20px;
-  border-top: 1px solid #e5e7eb;
-}
-
-.summary-box {
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 16px;
-}
-
-.summary-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: #9ca3af;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 8px;
-}
-
-.summary-content {
-  font-size: 14px;
-  color: #4b5563;
-  line-height: 1.6;
-  word-break: break-word;
-  white-space: pre-wrap;
-  max-height: 200px;
-  overflow-y: auto;
 }
 
 .graph-node {
