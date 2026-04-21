@@ -635,10 +635,12 @@ onMounted(() => {
 .detail-container {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 24px 32px;
   display: flex;
   flex-direction: column;
   gap: 20px;
+  min-height: 0;
 }
 
 .error-banner {
@@ -728,6 +730,7 @@ onMounted(() => {
   overflow: hidden;
   background: #f9fafb;
   min-height: 350px;
+  max-height: 500px;
   position: relative;
 }
 
@@ -992,7 +995,8 @@ onMounted(() => {
   font-size: 14px;
   color: #374151;
   line-height: 1.5;
-  word-break: break-all;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .summaries-section {
@@ -1023,7 +1027,10 @@ onMounted(() => {
   font-size: 14px;
   color: #4b5563;
   line-height: 1.6;
-  word-break: break-all;
+  word-break: break-word;
+  white-space: pre-wrap;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 </style>
