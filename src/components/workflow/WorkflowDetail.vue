@@ -62,7 +62,6 @@
         </div>
       </div>
 
-      <!-- 工作流可视化图 -->
       <div v-if="workflowDefinition" class="graph-card">
         <div class="card-header">
           <h3 class="card-title">工作流预览</h3>
@@ -120,14 +119,6 @@
                     :width="nodeWidth"
                     :height="nodeHeight"
                     :rx="16"
-                    :fill="node.bgColor"
-                    stroke="node.color"
-                    stroke-width="2"
-                  />
-                  <rect
-                    :width="nodeWidth"
-                    :height="nodeHeight"
-                    :rx="16"
                     class="node-bg"
                     :style="{ fill: node.bgColor, stroke: node.color }"
                   />
@@ -154,7 +145,6 @@
         </div>
       </div>
 
-      <!-- 工作流定义详情 -->
       <div v-if="workflowDefinition" class="definition-card">
         <div class="card-header">
           <h3 class="card-title">工作流定义</h3>
@@ -216,7 +206,6 @@ const graphContainer = ref<HTMLElement | null>(null);
 const showErrorToast = ref(false);
 const toastMessage = ref('');
 
-// 平移和缩放相关状态
 const panX = ref(0);
 const panY = ref(0);
 const scale = ref(1);
@@ -389,7 +378,6 @@ function centerView() {
   panY.value = (containerHeight / 2) - centerY;
 }
 
-// 自动居中
 watch(graphNodes, () => {
   setTimeout(() => {
     centerView();
@@ -402,7 +390,6 @@ async function loadWorkflowDetail() {
     const response = await workflowApi.getLatestWorkflow(workflowId.value);
     if (response.success) {
       workflow.value = response.data;
-      // 解析 definitionJson
       try {
         if (response.data.definitionJson) {
           workflowDefinition.value = JSON.parse(response.data.definitionJson);
@@ -428,9 +415,8 @@ onMounted(() => {
 .workflow-detail {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-height: 100vh;
   background: #f8fafc;
-  overflow: hidden;
 }
 
 .page-header {
@@ -439,6 +425,7 @@ onMounted(() => {
   padding: 24px 32px;
   background: #ffffff;
   border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
 }
 
 .header-left {
@@ -477,7 +464,7 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  flex: 1;
+  padding: 60px 20px;
   gap: 16px;
 }
 
@@ -488,16 +475,16 @@ onMounted(() => {
 }
 
 .detail-container {
-  flex: 1;
-  overflow-y: auto;
   padding: 32px;
   display: flex;
   flex-direction: column;
   gap: 24px;
+  overflow-y: auto;
 }
 
 .info-card,
-.definition-card {
+.definition-card,
+.graph-card {
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 16px;
@@ -511,6 +498,10 @@ onMounted(() => {
   padding: 20px;
   background: linear-gradient(135deg, #f9fafb, #f3f4f6);
   border-bottom: 1px solid #e5e7eb;
+}
+
+.graph-card .card-header {
+  justify-content: space-between;
 }
 
 .workflow-icon {
@@ -546,6 +537,40 @@ onMounted(() => {
   font-weight: 600;
   color: #1f2937;
   margin: 0;
+}
+
+.graph-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.zoom-level {
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  min-width: 42px;
+  text-align: center;
+}
+
+.zoom-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.zoom-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
+  border-color: #d1d5db;
 }
 
 .info-section {
@@ -601,6 +626,54 @@ onMounted(() => {
   border-radius: 999px;
   font-size: 12px;
   font-weight: 500;
+}
+
+.graph-wrapper {
+  padding: 32px;
+  overflow: hidden;
+  background: #f9fafb;
+  min-height: 400px;
+  position: relative;
+}
+
+.graph-wrapper.grabbing {
+  user-select: none;
+}
+
+.graph-svg {
+  display: block;
+  overflow: visible;
+}
+
+.edge-line {
+  stroke: #9ca3af;
+  stroke-width: 2;
+  fill: none;
+}
+
+.graph-node {
+  cursor: pointer;
+}
+
+.graph-node:hover .node-bg {
+  filter: brightness(0.98);
+}
+
+.node-bg {
+  fill: #ffffff;
+  stroke: #e5e7eb;
+  stroke-width: 2;
+}
+
+.node-name {
+  font-size: 14px;
+  font-weight: 600;
+  fill: #1f2937;
+}
+
+.node-type {
+  font-size: 11px;
+  fill: #6b7280;
 }
 
 .definition-content {
@@ -686,111 +759,5 @@ onMounted(() => {
   color: #9ca3af;
   padding: 20px;
   text-align: center;
-}
-
-.graph-card {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  overflow: hidden;
-}
-
-.graph-card .card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.graph-controls {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.zoom-level {
-  font-size: 13px;
-  font-weight: 500;
-  color: #6b7280;
-  min-width: 42px;
-  text-align: center;
-}
-
-.zoom-btn {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  color: #6b7280;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.zoom-btn:hover {
-  background: #f3f4f6;
-  color: #374151;
-  border-color: #d1d5db;
-}
-
-.graph-wrapper {
-  padding: 32px;
-  overflow: hidden;
-  background: #f9fafb;
-  min-height: 350px;
-  max-height: 500px;
-  position: relative;
-}
-
-.graph-wrapper.grabbing {
-  user-select: none;
-}
-
-.graph-svg {
-  display: block;
-  overflow: visible;
-}
-
-.edge-line {
-  stroke: #9ca3af;
-  stroke-width: 2;
-  fill: none;
-}
-
-.graph-node {
-  cursor: pointer;
-}
-
-.graph-node:hover .node-bg {
-  filter: brightness(0.98);
-}
-
-.node-bg {
-  fill: #ffffff;
-  stroke: #e5e7eb;
-  stroke-width: 2;
-}
-
-.node-name {
-  font-size: 14px;
-  font-weight: 600;
-  fill: #1f2937;
-}
-
-.node-type {
-  font-size: 11px;
-  fill: #6b7280;
-}
-
-.detail-container {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 32px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
 }
 </style>
