@@ -31,6 +31,17 @@
           <div v-if="execution.failedNodeName" class="error-banner-node">
             失败节点: <span class="mono">{{ execution.failedNodeName }}</span> ({{ execution.failedNodeId }})
           </div>
+          <div v-if="execution.errorStacktrace" class="error-stacktrace-section">
+            <button class="stacktrace-toggle" @click="showStacktrace = !showStacktrace">
+              <span class="toggle-icon" :class="{ 'rotated': showStacktrace }">
+                <ChevronDown class="w-4 h-4" />
+              </span>
+              <span>{{ showStacktrace ? '隐藏堆栈' : '查看堆栈信息' }}</span>
+            </button>
+            <div v-show="showStacktrace" class="error-stacktrace">
+              <pre>{{ execution.errorStacktrace }}</pre>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -111,6 +122,7 @@
                   :key="node.id"
                   :transform="`translate(${node.x}, ${node.y})`"
                   :class="['graph-node', node.class]"
+                  @click="handleNodeClick(node)"
                 >
                   <rect
                     v-if="node.isFailed"
@@ -245,13 +257,55 @@
       type="error"
       @close="showErrorToast = false"
     />
+
+    <!-- 节点详情模态框 -->
+    <div v-if="showNodeDetail && selectedNodeDetail" class="modal-overlay" @click.self="closeNodeDetail">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div class="modal-title-section">
+            <AlertCircle v-if="selectedNodeDetail.isFailed" class="w-6 h-6 text-red-500" />
+            <div>
+              <h3 class="modal-title">{{ selectedNodeDetail.fullName }}</h3>
+              <p class="modal-subtitle">{{ selectedNodeDetail.type }}</p>
+            </div>
+          </div>
+          <button class="modal-close" @click="closeNodeDetail">
+            <X class="w-5 h-5" />
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="node-detail-status">
+            <span class="status-badge" :class="selectedNodeDetail.statusClass">
+              {{ getNodeStatusText(selectedNodeDetail.status) }}
+            </span>
+            <span v-if="selectedNodeDetail.duration" class="node-detail-duration">
+              耗时: {{ selectedNodeDetail.duration }}
+            </span>
+          </div>
+
+          <div v-if="selectedNodeDetail.errorMessage" class="node-error-section">
+            <h4 class="section-title">错误信息</h4>
+            <div class="error-message-box">
+              {{ selectedNodeDetail.errorMessage }}
+            </div>
+          </div>
+
+          <div v-if="selectedNodeDetail.errorStacktrace" class="node-stacktrace-section">
+            <h4 class="section-title">堆栈信息</h4>
+            <div class="stacktrace-box">
+              <pre>{{ selectedNodeDetail.errorStacktrace }}</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { ArrowLeft, Loader2, AlertCircle, ChevronDown, RefreshCw } from 'lucide-vue-next';
+import { ArrowLeft, Loader2, AlertCircle, ChevronDown, RefreshCw, X } from 'lucide-vue-next';
 import workflowApi from '../../services/workflowApi';
 import Toast from '../common/Toast.vue';
 
@@ -263,6 +317,9 @@ const loading = ref(true);
 const execution = ref<any>(null);
 const graphContainer = ref<HTMLElement | null>(null);
 const showDetails = ref(false);
+const showStacktrace = ref(false);
+const showNodeDetail = ref(false);
+const selectedNodeDetail = ref<any>(null);
 
 // 平移相关状态
 const panX = ref(0);
@@ -341,6 +398,9 @@ const graphNodes = computed(() => {
       x: 40,
       y: 40,
       duration: node.durationMs ? formatDuration(node.durationMs) : null,
+      errorMessage: node.errorMessage,
+      errorStacktrace: node.errorStacktrace,
+      rawNode: node,
     };
   });
 
@@ -500,6 +560,18 @@ function panToFailedNode() {
     panX.value = (containerWidth / 2) - failedNode.x - (nodeWidth / 2);
     panY.value = (containerHeight / 2) - failedNode.y - (nodeHeight / 2);
   }
+}
+
+function handleNodeClick(node: any) {
+  if (node.isFailed || node.errorMessage) {
+    selectedNodeDetail.value = node;
+    showNodeDetail.value = true;
+  }
+}
+
+function closeNodeDetail() {
+  showNodeDetail.value = false;
+  selectedNodeDetail.value = null;
 }
 
 async function loadExecutionDetail() {
@@ -684,6 +756,58 @@ onMounted(() => {
 .error-banner-node {
   font-size: 13px;
   opacity: 0.9;
+}
+
+.error-stacktrace-section {
+  margin-top: 12px;
+  border-top: 1px solid rgba(239, 68, 68, 0.2);
+  padding-top: 12px;
+}
+
+.stacktrace-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  color: #dc2626;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.stacktrace-toggle:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.stacktrace-toggle .toggle-icon {
+  transition: transform 0.2s;
+}
+
+.stacktrace-toggle .toggle-icon.rotated {
+  transform: rotate(180deg);
+}
+
+.error-stacktrace {
+  margin-top: 12px;
+  background: #1f2937;
+  border-radius: 10px;
+  padding: 16px;
+  overflow: auto;
+  max-height: 300px;
+}
+
+.error-stacktrace pre {
+  margin: 0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #f9fafb;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .mono {
@@ -1042,6 +1166,151 @@ onMounted(() => {
   white-space: pre-wrap;
   max-height: 200px;
   overflow-y: auto;
+}
+
+.graph-node {
+  cursor: pointer;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.modal-content {
+  width: 100%;
+  max-width: 700px;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.modal-title-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.modal-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.modal-subtitle {
+  font-size: 13px;
+  color: #6b7280;
+  margin: 2px 0 0 0;
+}
+
+.modal-close {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.modal-close:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.node-detail-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.status-badge {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 999px;
+}
+
+.node-detail-duration {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 10px 0;
+}
+
+.node-error-section {
+  margin-bottom: 20px;
+}
+
+.error-message-box {
+  padding: 14px 16px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  color: #dc2626;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.node-stacktrace-section {
+  margin-bottom: 0;
+}
+
+.stacktrace-box {
+  background: #1f2937;
+  border-radius: 10px;
+  padding: 16px;
+  overflow: auto;
+  max-height: 300px;
+}
+
+.stacktrace-box pre {
+  margin: 0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #f9fafb;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 </style>
