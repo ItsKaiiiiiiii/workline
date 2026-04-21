@@ -67,6 +67,13 @@
         <div class="card-header">
           <h3 class="card-title">工作流预览</h3>
           <div class="graph-controls">
+            <button class="zoom-btn" @click="zoomOut" title="缩小">
+              <Minus class="w-4 h-4" />
+            </button>
+            <div class="zoom-level">{{ Math.round(scale * 100) }}%</div>
+            <button class="zoom-btn" @click="zoomIn" title="放大">
+              <Plus class="w-4 h-4" />
+            </button>
             <button class="zoom-btn" @click="resetView" title="重置视图">
               <RefreshCw class="w-4 h-4" />
             </button>
@@ -89,7 +96,7 @@
                 <polygon points="0 0, 12 4, 0 8" fill="#9ca3af" />
               </marker>
             </defs>
-            <g :transform="`translate(${panX}, ${panY})`">
+            <g :transform="`translate(${panX}, ${panY}) scale(${scale})`">
               <g class="edges">
                 <line
                   v-for="edge in graphEdges"
@@ -190,9 +197,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { ArrowLeft, Loader2, Workflow, ArrowRight, RefreshCw } from 'lucide-vue-next';
+import { ArrowLeft, Loader2, Workflow, ArrowRight, RefreshCw, Plus, Minus } from 'lucide-vue-next';
 import workflowApi from '../../services/workflowApi';
 import { getComponentConfig } from '../../config/componentConfig';
 import Toast from '../common/Toast.vue';
@@ -209,9 +216,10 @@ const graphContainer = ref<HTMLElement | null>(null);
 const showErrorToast = ref(false);
 const toastMessage = ref('');
 
-// 平移相关状态
+// 平移和缩放相关状态
 const panX = ref(0);
 const panY = ref(0);
+const scale = ref(1);
 const isPanning = ref(false);
 const startPanX = ref(0);
 const startPanY = ref(0);
@@ -344,10 +352,49 @@ function endPan() {
   isPanning.value = false;
 }
 
-function resetView() {
-  panX.value = 0;
-  panY.value = 0;
+function zoomIn() {
+  scale.value = Math.min(scale.value + 0.1, 2);
 }
+
+function zoomOut() {
+  scale.value = Math.max(scale.value - 0.1, 0.3);
+}
+
+function resetView() {
+  scale.value = 1;
+  centerView();
+}
+
+function centerView() {
+  if (!graphContainer.value || graphNodes.value.length === 0) {
+    panX.value = 0;
+    panY.value = 0;
+    return;
+  }
+
+  const containerWidth = graphContainer.value.clientWidth || 800;
+  const containerHeight = graphContainer.value.clientHeight || 400;
+
+  const minX = Math.min(...graphNodes.value.map(n => n.x));
+  const maxX = Math.max(...graphNodes.value.map(n => n.x)) + nodeWidth;
+  const minY = Math.min(...graphNodes.value.map(n => n.y));
+  const maxY = Math.max(...graphNodes.value.map(n => n.y)) + nodeHeight;
+
+  const contentWidth = maxX - minX;
+  const contentHeight = maxY - minY;
+  const centerX = minX + contentWidth / 2;
+  const centerY = minY + contentHeight / 2;
+
+  panX.value = (containerWidth / 2) - centerX;
+  panY.value = (containerHeight / 2) - centerY;
+}
+
+// 自动居中
+watch(graphNodes, () => {
+  setTimeout(() => {
+    centerView();
+  }, 100);
+}, { immediate: true });
 
 async function loadWorkflowDetail() {
   loading.value = true;
@@ -381,7 +428,7 @@ onMounted(() => {
 .workflow-detail {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: 100vh;
   background: #f8fafc;
   overflow: hidden;
 }
@@ -656,7 +703,16 @@ onMounted(() => {
 
 .graph-controls {
   display: flex;
+  align-items: center;
   gap: 8px;
+}
+
+.zoom-level {
+  font-size: 13px;
+  font-weight: 500;
+  color: #6b7280;
+  min-width: 42px;
+  text-align: center;
 }
 
 .zoom-btn {
@@ -681,9 +737,10 @@ onMounted(() => {
 
 .graph-wrapper {
   padding: 32px;
-  overflow: auto;
+  overflow: hidden;
   background: #f9fafb;
   min-height: 350px;
+  max-height: 500px;
   position: relative;
 }
 
@@ -735,6 +792,5 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  min-height: 0;
 }
 </style>
