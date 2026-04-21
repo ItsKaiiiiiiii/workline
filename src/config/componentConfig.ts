@@ -19,6 +19,8 @@ export interface ComponentConfig {
   inputs: string[];
   outputs: string[];
   fields: ComponentConfigField[];
+  supportsScript?: boolean;
+  defaultScript?: string;
 }
 
 // 组件配置定义
@@ -232,6 +234,21 @@ export const COMPONENT_CONFIGS: Record<string, ComponentConfig> = {
     inputs: ['input'],
     outputs: ['output'],
     fields: [],
+    supportsScript: true,
+    defaultScript: `// 数据转换脚本
+// msg: 输入消息对象
+// metadata: 元数据（如 MQTT topic 等）
+function transform(msg, metadata) {
+  // 在这里编写你的转换逻辑
+  // 例如：
+  // return {
+  //   ...msg,
+  //   transformed: true,
+  //   topic: metadata.topic
+  // };
+
+  return msg;
+}`,
   },
 
   LOG: {

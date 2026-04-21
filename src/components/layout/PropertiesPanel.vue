@@ -158,6 +158,34 @@
         </div>
       </div>
 
+      <!-- 脚本编辑器 -->
+      <div v-if="componentConfig && componentConfig.supportsScript" class="section">
+        <div class="section-title">
+          <Code2 class="w-4 h-4" />
+          <span>脚本编辑</span>
+        </div>
+        <div class="script-editor-wrapper">
+          <div class="script-hint">
+            <span class="hint-icon">ƒ</span>
+            <span class="hint-text">transform(msg, metadata)</span>
+          </div>
+          <textarea
+            :value="getScriptValue()"
+            @input="updateScript(($event.target as HTMLTextAreaElement).value)"
+            class="form-textarea font-mono script-editor"
+            rows="12"
+            placeholder="编写数据转换脚本..."
+          />
+          <div class="script-docs">
+            <p class="docs-title">参数说明:</p>
+            <ul class="docs-list">
+              <li><code>msg</code> - 输入消息对象</li>
+              <li><code>metadata</code> - 元数据（如 MQTT topic）</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
       <div class="section">
         <div class="section-title">
           <Link class="w-4 h-4" />
@@ -191,7 +219,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { Settings, Sliders, Link, MousePointerClick, Trash2, Plus } from 'lucide-vue-next';
+import { Settings, Sliders, Link, MousePointerClick, Trash2, Plus, Code2 } from 'lucide-vue-next';
 import * as Icons from 'lucide-vue-next';
 import { useWorkflowStore } from '../../stores/workflow';
 import { useDatasourceStore } from '../../stores/datasource';
@@ -347,6 +375,28 @@ function handleDeleteNode() {
   if (selectedNode.value) {
     store.removeNode(selectedNode.value.id);
   }
+}
+
+function getScriptValue(): string {
+  if (!selectedNode.value || !componentConfig.value) return '';
+  const params = selectedNode.value.params || {};
+  const config = getCleanConfig(params);
+  return config.script || componentConfig.value.defaultScript || '';
+}
+
+function updateScript(value: string) {
+  if (!selectedNode.value) return;
+  const params = selectedNode.value.params || {};
+  const config = getCleanConfig(params);
+  store.updateNode(selectedNode.value.id, {
+    params: {
+      ...params,
+      config: {
+        ...config,
+        script: value,
+      },
+    },
+  });
 }
 </script>
 
@@ -683,5 +733,82 @@ function handleDeleteNode() {
 
 .font-mono {
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.script-editor-wrapper {
+  margin-top: 8px;
+}
+
+.script-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f5f3ff;
+  border: 1px solid #ddd6fe;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.hint-icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #8b5cf6;
+  color: #ffffff;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.hint-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: #5b21b6;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.script-editor {
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.script-docs {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.docs-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  margin: 0 0 6px 0;
+}
+
+.docs-list {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.docs-list li {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.docs-list li:last-child {
+  margin-bottom: 0;
+}
+
+.docs-list code {
+  background: #e5e7eb;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #374151;
 }
 </style>
