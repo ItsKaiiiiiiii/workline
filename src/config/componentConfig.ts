@@ -690,12 +690,28 @@ function transform(msg, metadata) {
     outputs: ['output'],
     fields: [
       {
+        name: 'dataSource',
+        label: '数据源名称',
+        type: 'string',
+        required: true,
+        placeholder: 'default',
+      },
+      {
         name: 'query',
-        label: 'SQL 查询',
+        label: 'SELECT 查询语句',
         type: 'textarea',
         required: true,
-        placeholder: 'SELECT * FROM users WHERE id = :#id',
-        description: '参数使用 :#paramName 格式',
+        placeholder: 'SELECT * FROM users WHERE created_at > ?',
+        description: '执行 SQL 查询并返回结果',
+      },
+      {
+        name: 'outputType',
+        label: '输出类型',
+        type: 'select',
+        default: 'SelectList',
+        options: [
+          { label: 'SelectList', value: 'SelectList' },
+        ],
       },
     ],
   },
