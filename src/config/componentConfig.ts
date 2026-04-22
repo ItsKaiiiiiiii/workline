@@ -655,7 +655,7 @@ function transform(msg, metadata) {
 
   JDBC: {
     type: 'JDBC',
-    label: '数据库',
+    label: '数据库操作',
     icon: 'Database',
     color: '#f97316',
     bgColor: '#fff7ed',
@@ -664,18 +664,18 @@ function transform(msg, metadata) {
     fields: [
       {
         name: 'dataSource',
-        label: '数据源',
+        label: '数据源名称',
         type: 'string',
         required: true,
-        placeholder: 'myDataSource',
+        placeholder: 'default',
       },
       {
         name: 'query',
         label: 'SQL 语句',
         type: 'textarea',
         required: true,
-        placeholder: 'INSERT INTO table (col1, col2) VALUES (:#val1, :#val2)',
-        description: '参数使用 :#paramName 格式',
+        placeholder: 'INSERT INTO orders (id, amount, status) VALUES (?, ?, ?)',
+        description: '执行数据库操作（INSERT/UPDATE/DELETE）',
       },
     ],
   },
