@@ -109,12 +109,20 @@ const COMPONENT_CONFIG: Record<string, Partial<NodeConfig>> = {
     inputs: ['input'],
     outputs: ['output'],
   },
-  kafka: {
+  kafka_consumer: {
     icon: 'MessageSquare',
     color: '#22c55e',
     bgColor: '#f0fdf4',
     defaultParams: {},
     inputs: [],
+    outputs: ['output'],
+  },
+  kafka_producer: {
+    icon: 'MessageSquare',
+    color: '#16a34a',
+    bgColor: '#f0fdf4',
+    defaultParams: {},
+    inputs: ['input'],
     outputs: ['output'],
   },
   exec: {

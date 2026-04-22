@@ -716,25 +716,15 @@ function transform(msg, metadata) {
     ],
   },
 
-  KAFKA: {
-    type: 'KAFKA',
-    label: 'Kafka',
+  KAFKA_CONSUMER: {
+    type: 'KAFKA_CONSUMER',
+    label: 'Kafka 消费者',
     icon: 'MessageSquare',
     color: '#22c55e',
     bgColor: '#f0fdf4',
-    inputs: ['input'],
+    inputs: [],
     outputs: ['output'],
     fields: [
-      {
-        name: 'mode',
-        label: '模式',
-        type: 'select',
-        default: 'consumer',
-        options: [
-          { label: '消费者模式', value: 'consumer' },
-          { label: '生产者模式', value: 'producer' },
-        ],
-      },
       {
         name: 'brokers',
         label: 'Kafka 服务器地址',
@@ -755,7 +745,6 @@ function transform(msg, metadata) {
         label: '消费者组 ID',
         type: 'string',
         placeholder: 'connectx-group',
-        description: '消费者组 ID（消费者模式）',
       },
       {
         name: 'offset',
@@ -766,14 +755,13 @@ function transform(msg, metadata) {
           { label: 'earliest', value: 'earliest' },
           { label: 'latest', value: 'latest' },
         ],
-        description: '起始偏移：earliest/latest（消费者模式）',
+        description: '起始偏移：earliest/latest',
       },
       {
         name: 'autoCommit',
         label: '自动提交偏移',
         type: 'boolean',
         default: true,
-        description: '自动提交偏移（消费者模式）',
       },
       {
         name: 'concurrentConsumers',
@@ -781,21 +769,47 @@ function transform(msg, metadata) {
         type: 'number',
         default: 1,
         placeholder: '1',
-        description: '并发消费者数量（消费者模式）',
+      },
+    ],
+  },
+
+  KAFKA_PRODUCER: {
+    type: 'KAFKA_PRODUCER',
+    label: 'Kafka 生产者',
+    icon: 'MessageSquare',
+    color: '#16a34a',
+    bgColor: '#f0fdf4',
+    inputs: ['input'],
+    outputs: ['output'],
+    fields: [
+      {
+        name: 'brokers',
+        label: 'Kafka 服务器地址',
+        type: 'string',
+        required: true,
+        placeholder: 'kafka1:9092,kafka2:9092',
+        description: 'Kafka 服务器地址，逗号分隔',
+      },
+      {
+        name: 'topic',
+        label: '主题名称',
+        type: 'string',
+        required: true,
+        placeholder: 'orders',
       },
       {
         name: 'key',
         label: '消息 Key',
         type: 'string',
         placeholder: '${header.id}',
-        description: '消息 Key（生产者模式，支持表达式）',
+        description: '消息 Key（支持表达式）',
       },
       {
         name: 'partitionKey',
         label: '分区 Key',
         type: 'string',
         placeholder: '${body.partition}',
-        description: '分区 Key（生产者模式，支持表达式）',
+        description: '分区 Key（支持表达式）',
       },
     ],
   },
