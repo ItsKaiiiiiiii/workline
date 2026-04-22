@@ -802,7 +802,7 @@ function transform(msg, metadata) {
 
   EXEC: {
     type: 'EXEC',
-    label: '执行命令',
+    label: '本地命令执行',
     icon: 'Play',
     color: '#ef4444',
     bgColor: '#fef2f2',
@@ -810,24 +810,36 @@ function transform(msg, metadata) {
     outputs: ['output'],
     fields: [
       {
-        name: 'executable',
-        label: '可执行文件',
+        name: 'command',
+        label: '可执行文件路径',
         type: 'string',
         required: true,
-        placeholder: 'bash',
+        placeholder: '/path/to/script.sh',
       },
       {
         name: 'args',
-        label: '参数',
-        type: 'code',
-        placeholder: '["-c", "echo hello"]',
-        description: 'JSON 数组格式',
+        label: '命令参数',
+        type: 'string',
+        placeholder: '-v -f input.txt',
       },
       {
         name: 'workingDir',
         label: '工作目录',
         type: 'string',
         placeholder: '/tmp',
+      },
+      {
+        name: 'timeout',
+        label: '超时时间（毫秒）',
+        type: 'number',
+        default: 60000,
+        placeholder: '60000',
+      },
+      {
+        name: 'useStderrOnEmptyStdout',
+        label: 'stdout 为空时使用 stderr',
+        type: 'boolean',
+        default: false,
       },
     ],
   },
