@@ -13,7 +13,7 @@ const COMPONENT_CONFIG: Record<string, Partial<NodeConfig>> = {
     inputs: [],
     outputs: ['output'],
   },
-  file: {
+  file_listener: {
     icon: 'FileText',
     color: '#3b82f6',
     bgColor: '#eff6ff',
@@ -21,12 +21,28 @@ const COMPONENT_CONFIG: Record<string, Partial<NodeConfig>> = {
     inputs: [],
     outputs: ['output'],
   },
-  ftp: {
+  file_writer: {
+    icon: 'FileText',
+    color: '#1d4ed8',
+    bgColor: '#eff6ff',
+    defaultParams: {},
+    inputs: ['input'],
+    outputs: ['output'],
+  },
+  ftp_listener: {
     icon: 'Upload',
     color: '#8b5cf6',
     bgColor: '#f5f3ff',
     defaultParams: {},
     inputs: [],
+    outputs: ['output'],
+  },
+  ftp_upload: {
+    icon: 'Upload',
+    color: '#6d28d9',
+    bgColor: '#f5f3ff',
+    defaultParams: {},
+    inputs: ['input'],
     outputs: ['output'],
   },
   http: {
