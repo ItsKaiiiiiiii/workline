@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref, computed, onUnmounted } from 'vue';
+import { ref, computed } from 'vue';
 import router from '../router';
 import authApi from '../services/authApi';
 import organizationApi from '../services/organizationApi';
@@ -364,10 +364,6 @@ export const useAuthStore = defineStore('auth', () => {
   if (isAuthenticated.value) {
     startTokenRefresh();
   }
-
-  onUnmounted(() => {
-    stopTokenRefresh();
-  });
 
   return {
     user,

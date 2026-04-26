@@ -22,12 +22,12 @@ const routes = [
   },
   {
     path: '/',
-    name: 'Home',
     component: () => import('../components/layout/MainLayout.vue'),
     meta: { requiresAuth: true },
     children: [
       {
         path: '',
+        name: 'Home',
         redirect: '/workflows/create',
       },
       {

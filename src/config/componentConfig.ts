@@ -23,8 +23,13 @@ export interface ComponentConfig {
   defaultScript?: string;
 }
 
+// 驼峰转下划线大写（fileRead -> FILE_READ）
+function camelToSnakeUpper(str: string): string {
+  return str.replace(/([A-Z])/g, '_$1').toUpperCase();
+}
+
 // 组件配置定义
-export const COMPONENT_CONFIGS: Record<string, ComponentConfig> = {
+const COMPONENT_CONFIGS_BASE: Record<string, ComponentConfig> = {
   TIMER: {
     type: 'TIMER',
     label: '定时器',
@@ -61,7 +66,7 @@ export const COMPONENT_CONFIGS: Record<string, ComponentConfig> = {
   FILE_LISTENER: {
     type: 'FILE_LISTENER',
     label: '文件监听',
-    icon: 'FileText',
+    icon: 'File',
     color: '#3b82f6',
     bgColor: '#eff6ff',
     inputs: [],
@@ -181,7 +186,7 @@ export const COMPONENT_CONFIGS: Record<string, ComponentConfig> = {
   FTP_LISTENER: {
     type: 'FTP_LISTENER',
     label: 'FTP/SFTP 监听',
-    icon: 'Upload',
+    icon: 'Download',
     color: '#8b5cf6',
     bgColor: '#f5f3ff',
     inputs: [],
@@ -265,11 +270,18 @@ export const COMPONENT_CONFIGS: Record<string, ComponentConfig> = {
         description: 'FTP 被动模式',
       },
       {
-        name: 'sftp',
+        name: 'secure',
         label: '使用 SFTP',
         type: 'boolean',
         default: false,
         description: '是否使用 SFTP',
+      },
+      {
+        name: 'sftp',
+        label: '使用 SFTP（兼容）',
+        type: 'boolean',
+        default: false,
+        description: '是否使用 SFTP（兼容）',
       },
     ],
   },
@@ -353,11 +365,18 @@ export const COMPONENT_CONFIGS: Record<string, ComponentConfig> = {
         description: 'FTP 被动模式',
       },
       {
-        name: 'sftp',
+        name: 'secure',
         label: '使用 SFTP',
         type: 'boolean',
         default: false,
         description: '是否使用 SFTP',
+      },
+      {
+        name: 'sftp',
+        label: '使用 SFTP（兼容）',
+        type: 'boolean',
+        default: false,
+        description: '是否使用 SFTP（兼容）',
       },
     ],
   },
@@ -851,7 +870,7 @@ function transform(msg, metadata) {
   KAFKA_PRODUCER: {
     type: 'KAFKA_PRODUCER',
     label: 'Kafka 生产者',
-    icon: 'MessageSquare',
+    icon: 'Send',
     color: '#16a34a',
     bgColor: '#f0fdf4',
     inputs: ['input'],
@@ -1032,10 +1051,74 @@ function transform(msg, metadata) {
       },
     ],
   },
+
+  IF: {
+    type: 'IF',
+    label: '条件分支',
+    icon: 'GitBranch',
+    color: '#f97316',
+    bgColor: '#fff7ed',
+    inputs: ['input'],
+    outputs: ['output'],
+    fields: [
+      {
+        name: 'value1',
+        label: '比较值 1',
+        type: 'string',
+        required: true,
+        placeholder: '${body.status}',
+        description: '比较的第一个值（支持表达式）',
+      },
+      {
+        name: 'operator',
+        label: '比较操作符',
+        type: 'select',
+        default: 'equals',
+        options: [
+          { label: 'equals / equal (相等)', value: 'equals' },
+          { label: 'notEquals / notEqual (不相等)', value: 'notEquals' },
+          { label: 'contains (包含)', value: 'contains' },
+          { label: 'notContains (不包含)', value: 'notContains' },
+          { label: 'greaterThan / gt (大于)', value: 'greaterThan' },
+          { label: 'lessThan / lt (小于)', value: 'lessThan' },
+          { label: 'greaterThanOrEqual / gte (大于等于)', value: 'greaterThanOrEqual' },
+          { label: 'lessThanOrEqual / lte (小于等于)', value: 'lessThanOrEqual' },
+          { label: 'isEmpty / empty (为空)', value: 'isEmpty' },
+          { label: 'isNotEmpty / notEmpty (不为空)', value: 'isNotEmpty' },
+        ],
+        description: '比较操作符',
+      },
+      {
+        name: 'value2',
+        label: '比较值 2',
+        type: 'string',
+        placeholder: 'active',
+        description: '比较的第二个值（支持表达式）',
+      },
+    ],
+  },
+};
+
+// 创建完整的组件配置对象，同时支持两种命名方式
+export const COMPONENT_CONFIGS: Record<string, ComponentConfig> = {
+  ...COMPONENT_CONFIGS_BASE,
+  FILE_READ: { ...COMPONENT_CONFIGS_BASE.FILE_LISTENER, type: 'FILE_READ', label: '文件读取' },
+  FILE_WRITE: { ...COMPONENT_CONFIGS_BASE.FILE_WRITER, type: 'FILE_WRITE', label: '文件写入' },
+  FTP_READ: { ...COMPONENT_CONFIGS_BASE.FTP_LISTENER, type: 'FTP_READ', label: 'FTP 读取' },
+  FTP_WRITE: { ...COMPONENT_CONFIGS_BASE.FTP_UPLOAD, type: 'FTP_WRITE', label: 'FTP 写入' },
+  KAFKA_CONSUME: { ...COMPONENT_CONFIGS_BASE.KAFKA_CONSUMER, type: 'KAFKA_CONSUME', label: 'Kafka 消费者' },
+  KAFKA_PRODUCE: { ...COMPONENT_CONFIGS_BASE.KAFKA_PRODUCER, type: 'KAFKA_PRODUCE', label: 'Kafka 生产者' },
+  KAFKA_WRITE: { ...COMPONENT_CONFIGS_BASE.KAFKA_PRODUCER, type: 'KAFKA_WRITE', label: 'Kafka 生产者' },
+  CSV_READ: { ...COMPONENT_CONFIGS_BASE.CSV, type: 'CSV_READ', label: 'CSV 读取' },
+  CSV_WRITE: { ...COMPONENT_CONFIGS_BASE.CSV, type: 'CSV_WRITE', label: 'CSV 写入' },
 };
 
 // 获取组件配置
 export function getComponentConfig(type: string): ComponentConfig | undefined {
   const upperType = type.toUpperCase();
-  return COMPONENT_CONFIGS[upperType];
+  const snakeType = camelToSnakeUpper(type);
+
+  const config = COMPONENT_CONFIGS[upperType] || COMPONENT_CONFIGS[snakeType] || COMPONENT_CONFIGS[type];
+  console.log('getComponentConfig:', { type, upperType, snakeType, configExists: !!config });
+  return config;
 }

@@ -3,21 +3,56 @@ import { ref, computed } from 'vue';
 import componentApi, { type SystemComponent, type CustomComponent } from '../services/componentApi';
 import type { NodeConfig } from '../types';
 
+// 驼峰转下划线
+function camelToSnake(str: string): string {
+  return str.replace(/([A-Z])/g, '_$1').toLowerCase();
+}
+
 // 后端组件类型到前端配置的映射
 const COMPONENT_CONFIG: Record<string, Partial<NodeConfig>> = {
   timer: {
     icon: 'Clock',
     color: '#f59e0b',
     bgColor: '#fffbeb',
-    defaultParams: {},
+    defaultParams: {
+      name: 'default',
+      period: 5000,
+      delay: 0,
+      fixedRate: false,
+      repeatCount: -1,
+    },
     inputs: [],
     outputs: ['output'],
   },
   file_listener: {
-    icon: 'FileText',
+    icon: 'File',
     color: '#3b82f6',
     bgColor: '#eff6ff',
-    defaultParams: {},
+    defaultParams: {
+      directory: 'input',
+      recursive: false,
+      delay: 500,
+      noop: false,
+      delete: false,
+      charset: 'UTF-8',
+      idempotent: false,
+    },
+    inputs: [],
+    outputs: ['output'],
+  },
+  file_read: {
+    icon: 'File',
+    color: '#3b82f6',
+    bgColor: '#eff6ff',
+    defaultParams: {
+      directory: 'input',
+      recursive: false,
+      delay: 500,
+      noop: false,
+      delete: false,
+      charset: 'UTF-8',
+      idempotent: false,
+    },
     inputs: [],
     outputs: ['output'],
   },
@@ -25,15 +60,61 @@ const COMPONENT_CONFIG: Record<string, Partial<NodeConfig>> = {
     icon: 'FileText',
     color: '#1d4ed8',
     bgColor: '#eff6ff',
-    defaultParams: {},
+    defaultParams: {
+      directory: 'data',
+      fileExist: 'Override',
+      charset: 'UTF-8',
+    },
+    inputs: ['input'],
+    outputs: ['output'],
+  },
+  file_write: {
+    icon: 'FileText',
+    color: '#1d4ed8',
+    bgColor: '#eff6ff',
+    defaultParams: {
+      directory: 'data',
+      fileExist: 'Override',
+      charset: 'UTF-8',
+    },
     inputs: ['input'],
     outputs: ['output'],
   },
   ftp_listener: {
-    icon: 'Upload',
+    icon: 'Download',
     color: '#8b5cf6',
     bgColor: '#f5f3ff',
-    defaultParams: {},
+    defaultParams: {
+      port: 21,
+      directory: '/',
+      delay: 500,
+      delete: false,
+      binary: true,
+      passiveMode: true,
+      secure: false,
+      charset: 'UTF-8',
+      timeout: 30000,
+      reconnectDelay: 10000,
+    },
+    inputs: [],
+    outputs: ['output'],
+  },
+  ftp_read: {
+    icon: 'Download',
+    color: '#8b5cf6',
+    bgColor: '#f5f3ff',
+    defaultParams: {
+      port: 21,
+      directory: '/',
+      delay: 500,
+      delete: false,
+      binary: true,
+      passiveMode: true,
+      secure: false,
+      charset: 'UTF-8',
+      timeout: 30000,
+      reconnectDelay: 10000,
+    },
     inputs: [],
     outputs: ['output'],
   },
@@ -41,7 +122,29 @@ const COMPONENT_CONFIG: Record<string, Partial<NodeConfig>> = {
     icon: 'Upload',
     color: '#6d28d9',
     bgColor: '#f5f3ff',
-    defaultParams: {},
+    defaultParams: {
+      port: 21,
+      directory: '/',
+      fileExist: 'Override',
+      binary: true,
+      passiveMode: true,
+      secure: false,
+    },
+    inputs: ['input'],
+    outputs: ['output'],
+  },
+  ftp_write: {
+    icon: 'Upload',
+    color: '#6d28d9',
+    bgColor: '#f5f3ff',
+    defaultParams: {
+      port: 21,
+      directory: '/',
+      fileExist: 'Override',
+      binary: true,
+      passiveMode: true,
+      secure: false,
+    },
     inputs: ['input'],
     outputs: ['output'],
   },
@@ -57,7 +160,14 @@ const COMPONENT_CONFIG: Record<string, Partial<NodeConfig>> = {
     icon: 'Mail',
     color: '#ec4899',
     bgColor: '#fdf2f8',
-    defaultParams: {},
+    defaultParams: {
+      port: 25,
+      contentType: 'text/plain',
+      charset: 'UTF-8',
+      ssl: false,
+      starttls: false,
+      connectionTimeout: 30000,
+    },
     inputs: ['input'],
     outputs: ['output'],
   },
@@ -81,7 +191,9 @@ const COMPONENT_CONFIG: Record<string, Partial<NodeConfig>> = {
     icon: 'Zap',
     color: '#f59e0b',
     bgColor: '#fffbeb',
-    defaultParams: {},
+    defaultParams: {
+      name: 'endpoint',
+    },
     inputs: [],
     outputs: ['output'],
   },
@@ -113,7 +225,10 @@ const COMPONENT_CONFIG: Record<string, Partial<NodeConfig>> = {
     icon: 'Database',
     color: '#f97316',
     bgColor: '#fff7ed',
-    defaultParams: {},
+    defaultParams: {
+      dataSource: 'dataSource',
+      outputType: 'SelectList',
+    },
     inputs: ['input'],
     outputs: ['output'],
   },
@@ -121,7 +236,11 @@ const COMPONENT_CONFIG: Record<string, Partial<NodeConfig>> = {
     icon: 'Table',
     color: '#0ea5e9',
     bgColor: '#f0f9ff',
-    defaultParams: { query: '' },
+    defaultParams: {
+      dataSource: 'dataSource',
+      outputType: 'SelectList',
+      batch: false,
+    },
     inputs: ['input'],
     outputs: ['output'],
   },
@@ -129,15 +248,57 @@ const COMPONENT_CONFIG: Record<string, Partial<NodeConfig>> = {
     icon: 'MessageSquare',
     color: '#22c55e',
     bgColor: '#f0fdf4',
-    defaultParams: {},
+    defaultParams: {
+      topic: '',
+      brokers: 'localhost:9092',
+      groupId: '',
+      autoOffsetReset: 'earliest',
+      autoCommitEnable: true,
+    },
+    inputs: [],
+    outputs: ['output'],
+  },
+  kafka_consume: {
+    icon: 'MessageSquare',
+    color: '#22c55e',
+    bgColor: '#f0fdf4',
+    defaultParams: {
+      topic: '',
+      brokers: 'localhost:9092',
+      groupId: '',
+      autoOffsetReset: 'earliest',
+      autoCommitEnable: true,
+    },
     inputs: [],
     outputs: ['output'],
   },
   kafka_producer: {
-    icon: 'MessageSquare',
+    icon: 'Send',
     color: '#16a34a',
     bgColor: '#f0fdf4',
-    defaultParams: {},
+    defaultParams: {
+      brokers: 'localhost:9092',
+    },
+    inputs: ['input'],
+    outputs: ['output'],
+  },
+  kafka_produce: {
+    icon: 'Send',
+    color: '#16a34a',
+    bgColor: '#f0fdf4',
+    defaultParams: {
+      brokers: 'localhost:9092',
+    },
+    inputs: ['input'],
+    outputs: ['output'],
+  },
+  kafka_write: {
+    icon: 'Send',
+    color: '#16a34a',
+    bgColor: '#f0fdf4',
+    defaultParams: {
+      brokers: 'localhost:9092',
+    },
     inputs: ['input'],
     outputs: ['output'],
   },
@@ -145,23 +306,62 @@ const COMPONENT_CONFIG: Record<string, Partial<NodeConfig>> = {
     icon: 'Play',
     color: '#ef4444',
     bgColor: '#fef2f2',
-    defaultParams: {},
+    defaultParams: {
+      timeout: 60000,
+      useStderrOnEmptyStdout: false,
+    },
     inputs: ['input'],
     outputs: ['output'],
   },
-  csv: {
+  csv_read: {
     icon: 'FileSpreadsheet',
     color: '#84cc16',
     bgColor: '#f7fee7',
-    defaultParams: {},
+    defaultParams: {
+      directory: 'input',
+      useHeaders: true,
+      delimiter: ',',
+      quoteChar: '"',
+      escapeChar: '\\',
+      charset: 'UTF-8',
+      noop: false,
+      delete: false,
+      delay: 500,
+    },
     inputs: [],
+    outputs: ['output'],
+  },
+  csv_write: {
+    icon: 'FileSpreadsheet',
+    color: '#84cc16',
+    bgColor: '#f7fee7',
+    defaultParams: {
+      directory: 'data',
+      delimiter: ',',
+      quoteChar: '"',
+      charset: 'UTF-8',
+    },
+    inputs: ['input'],
     outputs: ['output'],
   },
   validator: {
     icon: 'CheckSquare',
     color: '#06b6d4',
     bgColor: '#ecfeff',
-    defaultParams: {},
+    defaultParams: {
+      schemaType: 'jsonSchema',
+      failOnError: true,
+    },
+    inputs: ['input'],
+    outputs: ['output'],
+  },
+  if: {
+    icon: 'GitBranch',
+    color: '#f97316',
+    bgColor: '#fff7ed',
+    defaultParams: {
+      operator: 'equals',
+    },
     inputs: ['input'],
     outputs: ['output'],
   },
@@ -178,7 +378,21 @@ return input;
 function mapBackendComponentToNodeConfig(
   component: SystemComponent | CustomComponent
 ): NodeConfig {
-  const config = COMPONENT_CONFIG[component.type] || {};
+  const lowerType = component.type.toLowerCase();
+  const snakeType = camelToSnake(component.type);
+
+  // 尝试多种方式匹配
+  let config = COMPONENT_CONFIG[lowerType] ||
+               COMPONENT_CONFIG[snakeType] ||
+               COMPONENT_CONFIG[component.type] || {};
+
+  console.log('mapBackendComponentToNodeConfig:', {
+    type: component.type,
+    lowerType,
+    snakeType,
+    configExists: !!config,
+    icon: config.icon || 'Circle'
+  });
 
   return {
     type: component.type,
