@@ -757,11 +757,12 @@ function transform(msg, metadata) {
     outputs: ['output'],
     fields: [
       {
-        name: 'dataSource',
-        label: '数据源名称',
+        name: 'configId',
+        label: '数据源',
         type: 'string',
         required: true,
-        placeholder: 'default',
+        placeholder: '选择数据源',
+        description: '从已配置的数据源中选择',
       },
       {
         name: 'query',
@@ -784,11 +785,12 @@ function transform(msg, metadata) {
     outputs: ['output'],
     fields: [
       {
-        name: 'dataSource',
-        label: '数据源名称',
+        name: 'configId',
+        label: '数据源',
         type: 'string',
         required: true,
-        placeholder: 'default',
+        placeholder: '选择数据源',
+        description: '从已配置的数据源中选择',
       },
       {
         name: 'query',
@@ -806,6 +808,12 @@ function transform(msg, metadata) {
         options: [
           { label: 'SelectList', value: 'SelectList' },
         ],
+      },
+      {
+        name: 'batch',
+        label: '批量处理',
+        type: 'boolean',
+        default: false,
       },
     ],
   },

@@ -1,52 +1,56 @@
 import api, { type ApiResponse } from '../utils/api';
 import type {
-  DatasourceInfo,
-  CreateDatasourceRequest,
-  UpdateDatasourceRequest,
-  DatasourceTestResult,
+  DatasourceConfig,
+  SaveDatasourceRequest,
+  TestConnectionRequest,
+  TestConnectionResponse,
 } from '../types/api';
 
 // 数据源相关 API
 export const datasourceApi = {
-  // 获取组织的所有数据源
-  async getDatasources(): Promise<ApiResponse<DatasourceInfo[]>> {
-    return api.get<DatasourceInfo[]>('/datasources');
+  // 查询所有数据源
+  async getDatasources(): Promise<ApiResponse<DatasourceConfig[]>> {
+    return api.get<DatasourceConfig[]>('/data-sources');
   },
 
-  // 获取单个数据源详情
-  async getDatasource(datasourceId: string): Promise<ApiResponse<DatasourceInfo>> {
-    return api.get<DatasourceInfo>(`/datasources/${datasourceId}`);
+  // 查询可用数据源（ACTIVE状态）
+  async getActiveDatasources(): Promise<ApiResponse<DatasourceConfig[]>> {
+    return api.get<DatasourceConfig[]>('/data-sources/active');
   },
 
-  // 创建数据源
-  async createDatasource(data: CreateDatasourceRequest): Promise<ApiResponse<DatasourceInfo>> {
-    return api.post<DatasourceInfo>('/datasources', data);
+  // 查询当前用户的数据源
+  async getMyDatasources(): Promise<ApiResponse<DatasourceConfig[]>> {
+    return api.get<DatasourceConfig[]>('/data-sources/my');
   },
 
-  // 更新数据源
-  async updateDatasource(
-    datasourceId: string,
-    data: UpdateDatasourceRequest
-  ): Promise<ApiResponse<DatasourceInfo>> {
-    return api.put<DatasourceInfo>(`/datasources/${datasourceId}`, data);
+  // 搜索数据源
+  async searchDatasources(name: string): Promise<ApiResponse<DatasourceConfig[]>> {
+    return api.get<DatasourceConfig[]>(`/data-sources/search?name=${encodeURIComponent(name)}`);
+  },
+
+  // 查询单个数据源
+  async getDatasource(configId: string): Promise<ApiResponse<DatasourceConfig>> {
+    return api.get<DatasourceConfig>(`/data-sources/${configId}`);
+  },
+
+  // 保存数据源（创建或更新）
+  async saveDatasource(data: SaveDatasourceRequest): Promise<ApiResponse<DatasourceConfig>> {
+    return api.post<DatasourceConfig>('/data-sources', data);
   },
 
   // 删除数据源
-  async deleteDatasource(datasourceId: string): Promise<ApiResponse<null>> {
-    return api.delete<null>(`/datasources/${datasourceId}`);
+  async deleteDatasource(configId: string): Promise<ApiResponse<null>> {
+    return api.delete<null>(`/data-sources/${configId}`);
   },
 
-  // 测试数据源连接
-  async testDatasource(datasourceId: string): Promise<ApiResponse<DatasourceTestResult>> {
-    return api.post<DatasourceTestResult>(`/datasources/${datasourceId}/test`);
+  // 测试已保存的数据源连接
+  async testDatasource(configId: string): Promise<ApiResponse<TestConnectionResponse>> {
+    return api.post<TestConnectionResponse>(`/data-sources/${configId}/test`);
   },
 
-  // 测试连接（不保存，直接测试配置）
-  async testConnection(config: {
-    type: string;
-    config: Record<string, any>;
-  }): Promise<ApiResponse<DatasourceTestResult>> {
-    return api.post<DatasourceTestResult>('/datasources/test-connection', config);
+  // 测试连接（不保存）
+  async testConnection(data: TestConnectionRequest): Promise<ApiResponse<TestConnectionResponse>> {
+    return api.post<TestConnectionResponse>('/data-sources/test', data);
   },
 };
 

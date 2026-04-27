@@ -226,8 +226,7 @@ const COMPONENT_CONFIG: Record<string, Partial<NodeConfig>> = {
     color: '#f97316',
     bgColor: '#fff7ed',
     defaultParams: {
-      dataSource: 'dataSource',
-      outputType: 'SelectList',
+      configId: '',
     },
     inputs: ['input'],
     outputs: ['output'],
@@ -237,7 +236,7 @@ const COMPONENT_CONFIG: Record<string, Partial<NodeConfig>> = {
     color: '#0ea5e9',
     bgColor: '#f0f9ff',
     defaultParams: {
-      dataSource: 'dataSource',
+      configId: '',
       outputType: 'SelectList',
       batch: false,
     },

@@ -7,6 +7,9 @@ export type ExecutionStatus = 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
 export type NodeExecutionStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED';
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'LOCKED';
 export type ResourceType = 'WORKFLOW' | 'DEPLOYMENT' | 'USER' | 'ROLE' | 'PERMISSION' | 'ORGANIZATION';
+export type DatasourceStatus = 'ACTIVE' | 'INACTIVE' | 'TESTING';
+export type DatasourceTestResultStatus = 'SUCCESS' | 'FAILED';
+export type DbType = 'MYSQL' | 'POSTGRESQL' | 'ORACLE' | 'SQLSERVER' | 'H2' | 'DB2';
 
 // ========== 认证模块类型 ==========
 
@@ -257,38 +260,60 @@ export interface ExecutionStats {
 
 // ========== 数据源管理模块类型 ==========
 
-export interface DatasourceInfo {
-  datasourceId: string;
+export interface DatasourceConfig {
+  configId: string;
   name: string;
-  type: string;
   description?: string;
-  config: Record<string, any>;
-  organizationId: string;
-  createdBy: string;
+  dbType: DbType;
+  jdbcUrl: string;
+  username?: string;
+  driverClass?: string;
+  maxPoolSize: number;
+  minIdle: number;
+  connectionTimeout: number;
+  idleTimeout: number;
+  testQuery?: string;
+  status: DatasourceStatus;
+  lastTestedAt?: string;
+  lastTestResult?: DatasourceTestResultStatus;
+  lastTestError?: string;
   createdAt: string;
   updatedAt: string;
-  isShared: boolean;
+  createdBy: string;
+  updatedBy: string;
 }
 
-export interface CreateDatasourceRequest {
+export interface SaveDatasourceRequest {
+  configId?: string;
   name: string;
-  type: string;
   description?: string;
-  config: Record<string, any>;
-  isShared: boolean;
+  dbType: DbType;
+  jdbcUrl: string;
+  username?: string;
+  password?: string;
+  driverClass?: string;
+  maxPoolSize?: number;
+  minIdle?: number;
+  connectionTimeout?: number;
+  idleTimeout?: number;
+  testQuery?: string;
 }
 
-export interface UpdateDatasourceRequest {
-  name?: string;
-  description?: string;
-  config?: Record<string, any>;
-  isShared?: boolean;
+export interface TestConnectionRequest {
+  dbType: DbType;
+  jdbcUrl: string;
+  username?: string;
+  password?: string;
+  driverClass?: string;
+  testQuery?: string;
 }
 
-export interface DatasourceTestResult {
+export interface TestConnectionResponse {
   success: boolean;
   message: string;
-  latency?: number;
+  error?: string;
+  durationMs?: number;
+  databaseVersion?: string;
 }
 
 // ========== 分页参数 ==========
