@@ -255,6 +255,42 @@ export interface ExecutionStats {
   statusCounts: Record<ExecutionStatus, number>;
 }
 
+// ========== 数据源管理模块类型 ==========
+
+export interface DatasourceInfo {
+  datasourceId: string;
+  name: string;
+  type: string;
+  description?: string;
+  config: Record<string, any>;
+  organizationId: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  isShared: boolean;
+}
+
+export interface CreateDatasourceRequest {
+  name: string;
+  type: string;
+  description?: string;
+  config: Record<string, any>;
+  isShared: boolean;
+}
+
+export interface UpdateDatasourceRequest {
+  name?: string;
+  description?: string;
+  config?: Record<string, any>;
+  isShared?: boolean;
+}
+
+export interface DatasourceTestResult {
+  success: boolean;
+  message: string;
+  latency?: number;
+}
+
 // ========== 分页参数 ==========
 
 export interface PageParams {

@@ -157,7 +157,6 @@
                   :type="field.type"
                   class="form-input"
                   :placeholder="field.placeholder"
-                  :value="field.defaultValue"
                 />
                 <input
                   v-else-if="field.type === 'number'"
@@ -165,14 +164,12 @@
                   type="number"
                   class="form-input"
                   :placeholder="field.placeholder"
-                  :value="field.defaultValue"
                 />
                 <label v-else-if="field.type === 'checkbox'" class="checkbox-label">
                   <input
                     v-model="formData.config[field.name]"
                     type="checkbox"
                     class="form-checkbox"
-                    :checked="field.defaultValue"
                   />
                   <span>启用</span>
                 </label>
@@ -280,7 +277,15 @@ function selectType(type: DatasourceType) {
   creatingType.value = type;
   selectedType.value = type;
   const config = datasourceLibrary.find((c) => c.type === type);
-  formData.value.config = { ...config?.defaultConfig } || {};
+  // 初始化所有配置字段
+  const initialConfig: Record<string, any> = {};
+  if (config?.configFields) {
+    for (const field of config.configFields) {
+      initialConfig[field.name] = field.defaultValue ?? '';
+    }
+  }
+  // 合并默认配置
+  formData.value.config = { ...initialConfig, ...config?.defaultConfig };
 }
 
 function handleEdit(datasource: Datasource) {

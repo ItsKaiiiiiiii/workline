@@ -1,7 +1,25 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { useAuthStore } from './auth';
+import datasourceApi from '../services/datasourceApi';
+import type { DatasourceInfo } from '../types/api';
 import type { Datasource, DatasourceType, DatasourceTestResult } from '../types/datasource';
+
+// 转换 API 类型到本地类型
+function mapDatasourceInfo(info: DatasourceInfo): Datasource {
+  return {
+    id: info.datasourceId,
+    name: info.name,
+    type: info.type as DatasourceType,
+    description: info.description,
+    config: info.config,
+    organizationId: info.organizationId,
+    createdBy: info.createdBy,
+    createdAt: new Date(info.createdAt),
+    updatedAt: new Date(info.updatedAt),
+    isShared: info.isShared,
+  };
+}
 
 export const useDatasourceStore = defineStore('datasource', () => {
   const authStore = useAuthStore();
@@ -19,63 +37,9 @@ export const useDatasourceStore = defineStore('datasource', () => {
   async function fetchDatasources(): Promise<void> {
     loading.value = true;
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      if (authStore.currentOrganization) {
-        datasources.value = [
-          {
-            id: 'ds-1',
-            name: '生产数据库',
-            type: 'mysql',
-            description: '主业务数据库',
-            config: {
-              host: '192.168.1.100',
-              port: 3306,
-              database: 'production',
-              username: 'admin',
-              password: '******',
-            },
-            organizationId: authStore.currentOrganization.id,
-            createdBy: authStore.user?.id || '',
-            createdAt: new Date(Date.now() - 86400000 * 7),
-            updatedAt: new Date(Date.now() - 86400000 * 3),
-            isShared: true,
-          },
-          {
-            id: 'ds-2',
-            name: 'Redis缓存',
-            type: 'redis',
-            description: '会话缓存',
-            config: {
-              host: '192.168.1.101',
-              port: 6379,
-              db: 0,
-            },
-            organizationId: authStore.currentOrganization.id,
-            createdBy: authStore.user?.id || '',
-            createdAt: new Date(Date.now() - 86400000 * 5),
-            updatedAt: new Date(Date.now() - 86400000 * 2),
-            isShared: true,
-          },
-          {
-            id: 'ds-3',
-            name: '测试环境',
-            type: 'postgresql',
-            description: '仅供测试使用',
-            config: {
-              host: 'localhost',
-              port: 5432,
-              database: 'test_db',
-              username: 'test',
-              password: '******',
-            },
-            organizationId: authStore.currentOrganization.id,
-            createdBy: authStore.user?.id || '',
-            createdAt: new Date(Date.now() - 86400000 * 2),
-            updatedAt: new Date(Date.now() - 86400000),
-            isShared: false,
-          },
-        ];
+      const response = await datasourceApi.getDatasources();
+      if (response.success) {
+        datasources.value = response.data.map(mapDatasourceInfo);
       }
     } finally {
       loading.value = false;
@@ -89,61 +53,52 @@ export const useDatasourceStore = defineStore('datasource', () => {
     description?: string,
     isShared = false
   ): Promise<Datasource> {
-    if (!authStore.currentOrganization) {
-      throw new Error('No organization selected');
-    }
-
-    const datasource: Datasource = {
-      id: 'ds-' + Date.now(),
+    const response = await datasourceApi.createDatasource({
       name,
       type,
       description,
       config,
-      organizationId: authStore.currentOrganization.id,
-      createdBy: authStore.user?.id || '',
-      createdAt: new Date(),
-      updatedAt: new Date(),
       isShared,
-    };
-
-    datasources.value.push(datasource);
-    return datasource;
+    });
+    if (response.success) {
+      const newDs = mapDatasourceInfo(response.data);
+      datasources.value.push(newDs);
+      return newDs;
+    }
+    throw new Error('Failed to create datasource');
   }
 
   async function updateDatasource(
     id: string,
     data: Partial<Omit<Datasource, 'id' | 'createdAt' | 'createdBy' | 'organizationId'>>
   ): Promise<void> {
-    const index = datasources.value.findIndex((ds) => ds.id === id);
-    if (index !== -1) {
-      datasources.value[index] = {
-        ...datasources.value[index],
-        ...data,
-        updatedAt: new Date(),
-      };
+    const response = await datasourceApi.updateDatasource(id, {
+      name: data.name,
+      description: data.description,
+      config: data.config,
+      isShared: data.isShared,
+    });
+    if (response.success) {
+      const index = datasources.value.findIndex((ds) => ds.id === id);
+      if (index !== -1) {
+        datasources.value[index] = mapDatasourceInfo(response.data);
+      }
     }
   }
 
   async function deleteDatasource(id: string): Promise<void> {
+    await datasourceApi.deleteDatasource(id);
     datasources.value = datasources.value.filter((ds) => ds.id !== id);
   }
 
   async function testDatasource(id: string): Promise<DatasourceTestResult> {
     testing.value[id] = true;
     try {
-      const datasource = datasources.value.find((ds) => ds.id === id);
-      if (!datasource) {
-        return { success: false, message: '数据源不存在' };
+      const response = await datasourceApi.testDatasource(id);
+      if (response.success) {
+        return response.data;
       }
-
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      const success = Math.random() > 0.3;
-      return {
-        success,
-        message: success ? '连接成功' : '连接失败：主机不可达',
-        latency: success ? Math.floor(Math.random() * 100) + 10 : undefined,
-      };
+      return { success: false, message: '测试失败' };
     } finally {
       testing.value[id] = false;
     }
