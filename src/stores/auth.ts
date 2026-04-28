@@ -30,9 +30,11 @@ function mapUserInfoToUser(userInfo: UserInfo) {
 function mapOrganization(org: Organization) {
   return {
     id: org.organizationId,
+    organizationId: org.organizationId,
     name: org.name,
     description: org.description,
     ownerId: String(org.ownerId),
+    currentUserRole: org.currentUserRole,
     members: [], // 这个需要单独获取
     createdAt: new Date(org.createdAt),
     updatedAt: new Date(org.updatedAt),

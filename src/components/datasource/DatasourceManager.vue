@@ -411,7 +411,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import {
   Database,
   Plus,
@@ -422,12 +422,13 @@ import {
   Edit,
   Trash2,
   X,
-} from 'lucide-vue';
-import * as Icons from 'lucide-vue';
+} from 'lucide-vue-next';
+import * as Icons from 'lucide-vue-next';
 import { useDatasourceStore } from '../../stores/datasource';
 import { DATASOURCE_LIBRARY } from '../../config/datasourceLibrary';
 import type { Datasource, DatasourceTestResult as DatasourceTestResultType, DbType } from '../../types/datasource';
 import type { TestConnectionResponse } from '../../types/api';
+import { ApiError } from '../../utils/api';
 
 const datasourceStore = useDatasourceStore();
 const datasources = computed(() => datasourceStore.datasources);
@@ -605,9 +606,27 @@ function closeModal() {
   }, 200);
 }
 
+function getErrorMessage(e: unknown): string {
+  if (e instanceof ApiError) {
+    return e.detail || e.message;
+  }
+  if (e instanceof Error) {
+    return e.message;
+  }
+  return String(e);
+}
+
 async function testDatasource(datasource: Datasource) {
-  const result = await datasourceStore.testDatasource(datasource.configId);
-  showTestResult(result);
+  try {
+    const result = await datasourceStore.testDatasource(datasource.configId);
+    showTestResult(result);
+  } catch (e: unknown) {
+    showTestResult({
+      success: false,
+      message: '测试失败',
+      error: getErrorMessage(e),
+    });
+  }
 }
 
 function showTestResult(result: DatasourceTestResultType | TestConnectionResponse) {
@@ -615,7 +634,7 @@ function showTestResult(result: DatasourceTestResultType | TestConnectionRespons
   if ('databaseVersion' in result && result.databaseVersion) {
     message += ` (${result.databaseVersion})`;
   }
-  alert(`${result.success ? '✓ ' : '✗ '}${message}${'durationMs' in result ? ` (${result.durationMs}ms)` : ''}`);
+  alert(`${result.success ? '✓ ' : '✗ '}${message}${'durationMs' in result && result.durationMs ? ` (${result.durationMs}ms)` : ''}${result.error ? `\n\n错误详情: ${result.error}` : ''}`);
 }
 
 async function testCurrentConnection() {
@@ -633,11 +652,11 @@ async function testCurrentConnection() {
       testQuery: formData.value.testQuery || undefined,
     });
     testResult.value = result;
-  } catch (e: any) {
+  } catch (e: unknown) {
     testResult.value = {
       success: false,
       message: '测试失败',
-      error: e.message || String(e),
+      error: getErrorMessage(e),
     };
   } finally {
     testingConnection.value = false;
@@ -668,8 +687,8 @@ async function saveDatasource() {
     });
 
     closeModal();
-  } catch (e: any) {
-    alert(`保存失败: ${e.message || String(e)}`);
+  } catch (e: unknown) {
+    alert(`保存失败: ${getErrorMessage(e)}`);
   } finally {
     saving.value = false;
   }
@@ -688,8 +707,8 @@ async function deleteDatasource() {
     await datasourceStore.deleteDatasource(deleteTarget.value.configId);
     showDeleteConfirm.value = false;
     deleteTarget.value = null;
-  } catch (e: any) {
-    alert(`删除失败: ${e.message || String(e)}`);
+  } catch (e: unknown) {
+    alert(`删除失败: ${getErrorMessage(e)}`);
   } finally {
     deleting.value = false;
   }
@@ -1383,6 +1402,10 @@ onMounted(() => {
   font-weight: bold;
 }
 
+.test-result-inline .result-message {
+  flex: 1;
+}
+
 .test-result-inline .duration {
   font-size: 12px;
   opacity: 0.8;
@@ -1397,6 +1420,8 @@ onMounted(() => {
   flex: 1 1 100%;
   font-size: 12px;
   opacity: 0.9;
+  margin-top: 4px;
+  word-break: break-word;
 }
 
 .modal-footer {

@@ -322,3 +322,77 @@ export interface PageParams {
   page?: number;
   size?: number;
 }
+
+// ========== 模板市场模块类型 ==========
+
+export type TemplateVisibility = 'PRIVATE' | 'PUBLIC' | 'ORGANIZATION';
+
+export interface WorkflowTemplate {
+  id: number;
+  name: string;
+  description?: string;
+  category?: string;
+  tags: string[];
+  definitionJson: string;
+  isOfficial: boolean;
+  visibility: TemplateVisibility;
+  tenantId: string;
+  createdBy: string;
+  createdByName: string;
+  likesCount: number;
+  usageCount: number;
+  createdAt: string;
+  updatedAt: string;
+  likedByCurrentUser: boolean;
+  canEdit: boolean;
+}
+
+export interface CreateTemplateRequest {
+  name: string;
+  description?: string;
+  category?: string;
+  tags?: string[];
+  definitionJson: string;
+}
+
+export interface UpdateTemplateRequest {
+  name?: string;
+  description?: string;
+  category?: string;
+  tags?: string[];
+  definitionJson?: string;
+  visibility?: TemplateVisibility;
+}
+
+export interface TemplateQueryParams {
+  keyword?: string;
+  category?: string;
+  tags?: string;
+  visibility?: TemplateVisibility;
+  isOfficial?: boolean;
+  createdBy?: string;
+  sortBy?: string;
+  sortOrder?: 'ASC' | 'DESC';
+  page?: number;
+  size?: number;
+}
+
+export interface TemplatePageResponse {
+  content: WorkflowTemplate[];
+  page: number;
+  size: number;
+  totalElements: number;
+}
+
+export interface UseTemplateResponse {
+  id: number;
+  workflowId: string;
+  name: string;
+  description?: string;
+  version: number;
+  definitionJson: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  isLatest: boolean;
+}

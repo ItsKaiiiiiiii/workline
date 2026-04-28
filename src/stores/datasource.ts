@@ -43,9 +43,7 @@ export const useDatasourceStore = defineStore('datasource', () => {
     loading.value = true;
     try {
       const response = await datasourceApi.getDatasources();
-      if (response.success) {
-        datasources.value = response.data.map(mapDatasourceInfo);
-      }
+      datasources.value = response.data.map(mapDatasourceInfo);
     } finally {
       loading.value = false;
     }
@@ -55,9 +53,7 @@ export const useDatasourceStore = defineStore('datasource', () => {
     loading.value = true;
     try {
       const response = await datasourceApi.getActiveDatasources();
-      if (response.success) {
-        datasources.value = response.data.map(mapDatasourceInfo);
-      }
+      datasources.value = response.data.map(mapDatasourceInfo);
     } finally {
       loading.value = false;
     }
@@ -65,10 +61,7 @@ export const useDatasourceStore = defineStore('datasource', () => {
 
   async function searchDatasources(name: string): Promise<Datasource[]> {
     const response = await datasourceApi.searchDatasources(name);
-    if (response.success) {
-      return response.data.map(mapDatasourceInfo);
-    }
-    return [];
+    return response.data.map(mapDatasourceInfo);
   }
 
   async function saveDatasource(data: {
@@ -94,17 +87,14 @@ export const useDatasourceStore = defineStore('datasource', () => {
       idleTimeout: data.idleTimeout ?? 600000,
     };
     const response = await datasourceApi.saveDatasource(request);
-    if (response.success) {
-      const newDs = mapDatasourceInfo(response.data);
-      const index = datasources.value.findIndex((ds) => ds.configId === newDs.configId);
-      if (index !== -1) {
-        datasources.value[index] = newDs;
-      } else {
-        datasources.value.push(newDs);
-      }
-      return newDs;
+    const newDs = mapDatasourceInfo(response.data);
+    const index = datasources.value.findIndex((ds) => ds.configId === newDs.configId);
+    if (index !== -1) {
+      datasources.value[index] = newDs;
+    } else {
+      datasources.value.push(newDs);
     }
-    throw new Error('Failed to save datasource');
+    return newDs;
   }
 
   async function deleteDatasource(configId: string): Promise<void> {
@@ -116,17 +106,14 @@ export const useDatasourceStore = defineStore('datasource', () => {
     testing.value[configId] = true;
     try {
       const response = await datasourceApi.testDatasource(configId);
-      if (response.success) {
-        // 更新本地数据源的测试状态
-        const ds = datasources.value.find((d) => d.configId === configId);
-        if (ds) {
-          ds.lastTestedAt = new Date();
-          ds.lastTestResult = response.data.success ? 'SUCCESS' : 'FAILED';
-          ds.lastTestError = response.data.error;
-        }
-        return response.data;
+      // 更新本地数据源的测试状态
+      const ds = datasources.value.find((d) => d.configId === configId);
+      if (ds) {
+        ds.lastTestedAt = new Date();
+        ds.lastTestResult = response.data.success ? 'SUCCESS' : 'FAILED';
+        ds.lastTestError = response.data.error;
       }
-      return { success: false, message: '测试失败' };
+      return response.data;
     } finally {
       testing.value[configId] = false;
     }
@@ -141,10 +128,7 @@ export const useDatasourceStore = defineStore('datasource', () => {
     testQuery?: string;
   }): Promise<TestConnectionResponse> {
     const response = await datasourceApi.testConnection(data);
-    if (response.success) {
-      return response.data;
-    }
-    return { success: false, message: '测试失败' };
+    return response.data;
   }
 
   function getDatasourceById(configId: string): Datasource | undefined {

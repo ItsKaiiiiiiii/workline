@@ -55,6 +55,15 @@
           <Users class="w-5 h-5" />
           <span v-if="!sidebarCollapsed">成员管理</span>
         </router-link>
+        <router-link
+          to="/templates"
+          class="nav-item"
+          :class="{ active: $route.path === '/templates' }"
+          :title="sidebarCollapsed ? '模板市场' : ''"
+        >
+          <Package class="w-5 h-5" />
+          <span v-if="!sidebarCollapsed">模板市场</span>
+        </router-link>
       </nav>
 
       <div v-if="!sidebarCollapsed" class="sidebar-footer">
@@ -218,6 +227,7 @@ import {
   Database,
   Users,
   Bell,
+  Package,
 } from 'lucide-vue-next';
 import { useAuthStore } from '../../stores/auth';
 import type { ApiError } from '../../utils/api';

@@ -1,5 +1,6 @@
 import type { DbType } from './api';
 
+export type { DbType };
 export type DatasourceType = DbType | string;
 
 export interface DatasourceConfigField {

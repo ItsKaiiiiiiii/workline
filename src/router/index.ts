@@ -68,6 +68,11 @@ const routes = [
         name: 'Members',
         component: () => import('../components/organization/MemberManager.vue'),
       },
+      {
+        path: 'templates',
+        name: 'Templates',
+        component: () => import('../components/template/TemplateMarket.vue'),
+      },
     ],
   },
 ];
