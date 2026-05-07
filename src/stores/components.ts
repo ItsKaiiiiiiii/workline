@@ -364,6 +364,22 @@ const COMPONENT_CONFIG: Record<string, Partial<NodeConfig>> = {
     inputs: ['input'],
     outputs: ['output'],
   },
+  ai: {
+    icon: 'Sparkles',
+    color: '#8b5cf6',
+    bgColor: '#f5f3ff',
+    defaultParams: {},
+    inputs: ['input'],
+    outputs: ['output'],
+  },
+  chat: {
+    icon: 'MessageCircle',
+    color: '#06b6d4',
+    bgColor: '#ecfeff',
+    defaultParams: {},
+    inputs: ['input'],
+    outputs: ['output'],
+  },
 };
 
 // 默认的输出转换代码

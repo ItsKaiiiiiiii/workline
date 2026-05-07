@@ -1105,6 +1105,74 @@ function transform(msg, metadata) {
       },
     ],
   },
+
+  AI: {
+    type: 'AI',
+    label: 'AI 处理',
+    icon: 'Sparkles',
+    color: '#8b5cf6',
+    bgColor: '#f5f3ff',
+    inputs: ['input'],
+    outputs: ['output'],
+    fields: [
+      {
+        name: 'prompt',
+        label: '提示词',
+        type: 'textarea',
+        placeholder: '请分析以下数据并总结关键信息...',
+        description: 'AI 处理的提示词',
+      },
+      {
+        name: 'model',
+        label: '模型',
+        type: 'string',
+        placeholder: 'gpt-4',
+        description: '使用的 AI 模型',
+      },
+      {
+        name: 'temperature',
+        label: '温度',
+        type: 'number',
+        default: 0.7,
+        placeholder: '0.7',
+        description: '控制输出的随机性（0-1）',
+      },
+    ],
+  },
+
+  CHAT: {
+    type: 'CHAT',
+    label: '对话交互',
+    icon: 'MessageCircle',
+    color: '#06b6d4',
+    bgColor: '#ecfeff',
+    inputs: ['input'],
+    outputs: ['output'],
+    fields: [
+      {
+        name: 'systemMessage',
+        label: '系统消息',
+        type: 'textarea',
+        placeholder: '你是一个有用的助手...',
+        description: '设置 AI 的角色和行为',
+      },
+      {
+        name: 'model',
+        label: '模型',
+        type: 'string',
+        placeholder: 'gpt-4',
+        description: '使用的对话模型',
+      },
+      {
+        name: 'maxTokens',
+        label: '最大 Token 数',
+        type: 'number',
+        default: 1000,
+        placeholder: '1000',
+        description: '限制回复长度',
+      },
+    ],
+  },
 };
 
 // 创建完整的组件配置对象，同时支持两种命名方式
@@ -1119,6 +1187,8 @@ export const COMPONENT_CONFIGS: Record<string, ComponentConfig> = {
   KAFKA_WRITE: { ...COMPONENT_CONFIGS_BASE.KAFKA_PRODUCER, type: 'KAFKA_WRITE', label: 'Kafka 生产者' },
   CSV_READ: { ...COMPONENT_CONFIGS_BASE.CSV, type: 'CSV_READ', label: 'CSV 读取' },
   CSV_WRITE: { ...COMPONENT_CONFIGS_BASE.CSV, type: 'CSV_WRITE', label: 'CSV 写入' },
+  ai: { ...COMPONENT_CONFIGS_BASE.AI, type: 'ai', label: 'AI 处理' },
+  chat: { ...COMPONENT_CONFIGS_BASE.CHAT, type: 'chat', label: '对话交互' },
 };
 
 // 获取组件配置

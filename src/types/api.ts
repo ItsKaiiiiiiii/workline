@@ -5,6 +5,7 @@ export type InvitationStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
 export type DeploymentStatus = 'DEPLOYED' | 'UNDEPLOYED' | 'FAILED';
 export type ExecutionStatus = 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
 export type NodeExecutionStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED';
+export type TestExecutionStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED' | 'PAUSED' | 'WAITING_RETRY' | 'SKIPPED';
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'LOCKED';
 export type ResourceType = 'WORKFLOW' | 'DEPLOYMENT' | 'USER' | 'ROLE' | 'PERMISSION' | 'ORGANIZATION';
 export type DatasourceStatus = 'ACTIVE' | 'INACTIVE' | 'TESTING';
@@ -115,6 +116,7 @@ export interface SendInvitationRequest {
 
 export interface WorkflowDefinition {
   id: number;
+  draftId: string;
   workflowId: string;
   name: string;
   description: string;
@@ -132,6 +134,7 @@ export interface WorkflowDefinition {
 // 包含部署状态的工作流列表项（新接口）
 export interface WorkflowListItem {
   id: number;
+  draftId: string;
   workflowId: string;
   name: string;
   description: string;
@@ -175,6 +178,29 @@ export interface SaveWorkflowRequest {
   description?: string;
   createdBy?: string;
   definition: WorkflowDefinitionData;
+}
+
+// ========== 草稿相关 ==========
+
+export interface WorkflowDraft {
+  id: number;
+  draftId: string;
+  workflowId?: string | null;
+  name: string;
+  description?: string;
+  definitionJson: string;
+  createdAt: string;
+  updatedAt: string;
+  savedBy?: string;
+}
+
+export interface WorkflowDraftCreateRequest {
+  draftId?: string | null;
+  workflowId?: string | null;
+  name: string;
+  description?: string;
+  definition: WorkflowDefinitionData;
+  savedBy?: string;
 }
 
 // ========== 部署管理模块类型 ==========
@@ -395,4 +421,61 @@ export interface UseTemplateResponse {
   updatedAt: string;
   createdBy: string;
   isLatest: boolean;
+}
+
+// ========== 工作流测试模块类型 ==========
+
+export interface TestNodeExecution {
+  nodeId: string;
+  nodeName: string;
+  nodeType: string;
+  nodeConfigSnapshot?: string | null;
+  executionOrder: number;
+  status: TestExecutionStatus;
+  startedAt?: string | null;
+  endedAt?: string | null;
+  durationMs?: number | null;
+  inputDataSnapshot?: string | null;
+  outputDataSnapshot?: string | null;
+  errorMessage?: string | null;
+  errorStacktrace?: string | null;
+}
+
+export interface WorkflowTestExecution {
+  testExecutionId: string;
+  draftId: string;
+  workflowId?: string | null;
+  status: TestExecutionStatus;
+  startedAt: string;
+  endedAt?: string | null;
+  durationMs?: number | null;
+  testInput?: string | null;
+  testOutput?: string | null;
+  failedNodeId?: string | null;
+  failedNodeName?: string | null;
+  errorMessage?: string | null;
+  errorStacktrace?: string | null;
+  triggeredBy?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  nodes: TestNodeExecution[];
+}
+
+export interface RunWorkflowTestRequest {
+  draftId: string;
+  startNodeId?: string | null;
+  testInput?: any;
+  saveAsDefaultInput?: boolean;
+}
+
+export interface ParsedTestNodeExecution extends Omit<TestNodeExecution, 'nodeConfigSnapshot' | 'inputDataSnapshot' | 'outputDataSnapshot'> {
+  nodeConfig: Record<string, any>;
+  inputData?: Record<string, any>;
+  outputData?: Record<string, any>;
+}
+
+export interface ParsedWorkflowTestExecution extends Omit<WorkflowTestExecution, 'testInput' | 'testOutput' | 'nodes'> {
+  testInputData?: Record<string, any>;
+  testOutputData?: Record<string, any>;
+  nodes: ParsedTestNodeExecution[];
 }

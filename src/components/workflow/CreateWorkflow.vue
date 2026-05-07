@@ -14,6 +14,15 @@
           <Save class="w-4 h-4" />
           <span>保存草稿</span>
         </button>
+        <button
+          class="btn btn-test"
+          :disabled="testStore.isRunning"
+          @click="handleRunTestClick"
+        >
+          <Play v-if="!testStore.isRunning" class="w-4 h-4" />
+          <Loader v-else class="w-4 h-4 spin" />
+          <span>{{ testStore.isRunning ? '测试中...' : '运行测试' }}</span>
+        </button>
         <button class="btn btn-primary" @click="handlePublish">
           <Rocket class="w-4 h-4" />
           <span>发布</span>
@@ -24,9 +33,14 @@
     <div class="workflow-content">
       <NodePanel @dragstart="handleNodeDragStart" />
       <div class="canvas-area">
-        <CanvasEditor ref="canvasEditorRef" />
+        <CanvasEditor ref="canvasEditorRef" @runTestFromNode="handleRunTestFromNode" />
       </div>
       <PropertiesPanel />
+      <TestResultPanel
+        :visible="testStore.showTestResultPanel"
+        @close="testStore.closeTestResultPanel"
+        @rerun="handleRerun"
+      />
     </div>
 
     <Toast
@@ -45,26 +59,31 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import { Save, Rocket } from 'lucide-vue-next';
+import { ref, onUnmounted } from 'vue';
+import { Save, Rocket, Play, Loader } from 'lucide-vue-next';
 import { useWorkflowsStore } from '../../stores/workflows';
 import { useWorkflowStore } from '../../stores/workflow';
+import { useWorkflowTestStore } from '../../stores/workflowTest';
 import { getComponentConfig } from '../../config/componentConfig';
 import NodePanel from '../layout/NodePanel.vue';
 import CanvasEditor from '../canvas/CanvasEditor.vue';
 import PropertiesPanel from '../layout/PropertiesPanel.vue';
 import Toast from '../common/Toast.vue';
+import TestResultPanel from './TestResultPanel.vue';
 import type { NodeConfig } from '../../types';
 import type { ApiError } from '../../utils/api';
 
 const workflowsStore = useWorkflowsStore();
 const workflowStore = useWorkflowStore();
+const testStore = useWorkflowTestStore();
 
 const workflowName = ref('未命名工作流');
 const canvasEditorRef = ref();
 const showSuccessToast = ref(false);
 const showErrorToast = ref(false);
 const toastMessage = ref('');
+const savedDraftId = ref<string>('');
+const savedWorkflowId = ref<string>('');
 
 function handleNodeDragStart(event: DragEvent, node: NodeConfig) {
   canvasEditorRef.value?.handleNodeDrop(node, event);
@@ -80,7 +99,6 @@ function showError(message: string) {
   showErrorToast.value = true;
 }
 
-// 辅助函数：解包 config.config 嵌套
 function getCleanConfig(params: any): any {
   let config = params?.config || {};
   if (config && typeof config === 'object' && 'config' in config) {
@@ -96,14 +114,11 @@ async function handleSave() {
   }
 
   try {
-    // 转换节点数据格式
     const nodes = workflowStore.nodes.map(node => {
       const componentConfig = getComponentConfig(node.type);
-      // 解包 config.config 嵌套
       let currentConfig = getCleanConfig(node.params);
       const finalConfig: Record<string, any> = { ...currentConfig };
 
-      // 填充缺失的默认值
       if (componentConfig) {
         for (const field of componentConfig.fields) {
           if (field.default !== undefined && finalConfig[field.name] === undefined) {
@@ -120,7 +135,6 @@ async function handleSave() {
       };
     });
 
-    // 转换边数据格式
     const edges = workflowStore.edges.map(edge => ({
       id: edge.id,
       sourceNodeId: edge.source,
@@ -128,12 +142,23 @@ async function handleSave() {
       label: '',
     }));
 
-    await workflowsStore.saveWorkflowDefinition(
-      null,
+    const result = await workflowsStore.saveWorkflowDefinition(
+      savedWorkflowId.value || null,
+      savedDraftId.value || null,
       workflowName.value,
       '',
       { nodes, edges }
     );
+
+    if (result && result.draftId) {
+      savedDraftId.value = result.draftId;
+      savedWorkflowId.value = result.workflowId;
+      testStore.setDraftId(result.draftId);
+    } else {
+      showError('保存成功，但没有获取到草稿 ID，请刷新页面重试');
+      return;
+    }
+
     showSuccess('已保存到草稿！');
   } catch (err: any) {
     console.error('Failed to save workflow:', err);
@@ -146,6 +171,41 @@ async function handleSave() {
   }
 }
 
+function handleRunTestClick() {
+  handleRunTest();
+}
+
+async function handleRunTest(startNodeId?: string) {
+  if (!savedDraftId.value) {
+    showError('请先保存草稿后再运行测试');
+    return;
+  }
+
+  try {
+    await testStore.runTest(startNodeId);
+  } catch (err: any) {
+    console.error('Failed to run test:', err);
+    if (err.name === 'ApiError') {
+      const apiErr = err as ApiError;
+      showError(apiErr.detail || apiErr.message || '运行测试失败');
+    } else {
+      showError(err.message || '运行测试失败，请稍后重试');
+    }
+  }
+}
+
+function handleRunTestFromNode(nodeId: string) {
+  handleRunTest(nodeId);
+}
+
+function handleRerun() {
+  handleRunTest();
+}
+
+onUnmounted(() => {
+  testStore.stopPolling();
+});
+
 async function handlePublish() {
   if (!workflowName.value) {
     showError('请输入工作流名称');
@@ -153,14 +213,11 @@ async function handlePublish() {
   }
 
   try {
-    // 转换节点数据格式
     const nodes = workflowStore.nodes.map(node => {
       const componentConfig = getComponentConfig(node.type);
-      // 解包 config.config 嵌套
       let currentConfig = getCleanConfig(node.params);
       const finalConfig: Record<string, any> = { ...currentConfig };
 
-      // 填充缺失的默认值
       if (componentConfig) {
         for (const field of componentConfig.fields) {
           if (field.default !== undefined && finalConfig[field.name] === undefined) {
@@ -177,7 +234,6 @@ async function handlePublish() {
       };
     });
 
-    // 转换边数据格式
     const edges = workflowStore.edges.map(edge => ({
       id: edge.id,
       sourceNodeId: edge.source,
@@ -185,13 +241,24 @@ async function handlePublish() {
       label: '',
     }));
 
-    const workflowId = await workflowsStore.saveWorkflowDefinition(
-      null,
+    const result = await workflowsStore.saveWorkflowDefinition(
+      savedWorkflowId.value || null,
+      savedDraftId.value || null,
       workflowName.value,
       '',
       { nodes, edges }
     );
-    await workflowsStore.publishWorkflow(workflowId);
+
+    if (result && result.draftId) {
+      savedDraftId.value = result.draftId;
+      savedWorkflowId.value = result.workflowId;
+      testStore.setDraftId(result.draftId);
+    } else {
+      showError('保存失败，没有获取到草稿 ID');
+      return;
+    }
+
+    await workflowsStore.publishWorkflow(result.workflowId);
     showSuccess('工作流已发布！');
   } catch (err: any) {
     console.error('Failed to publish workflow:', err);
@@ -281,6 +348,21 @@ async function handlePublish() {
   background: #e5e7eb;
 }
 
+.btn-test {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+}
+
+.btn-test:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.btn-test:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .btn-primary {
   background: linear-gradient(135deg, #3b82f6, #8b5cf6);
   color: #ffffff;
@@ -289,6 +371,19 @@ async function handlePublish() {
 .btn-primary:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .workflow-content {

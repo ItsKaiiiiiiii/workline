@@ -1,8 +1,32 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import workflowApi from '../services/workflowApi';
-import type { WorkflowDefinition, WorkflowListItem, SaveWorkflowRequest, WorkflowDefinitionData } from '../types/api';
+import type { WorkflowDefinition, WorkflowListItem, SaveWorkflowRequest, WorkflowDefinitionData, WorkflowDraft } from '../types/api';
 import { useAuthStore } from './auth';
+
+// 转换 API 的 WorkflowDraft 到本地格式
+function mapWorkflowDraft(draft: WorkflowDraft): LocalWorkflow {
+  let definitionData: WorkflowDefinitionData | null = null;
+  try {
+    definitionData = JSON.parse(draft.definitionJson);
+  } catch {
+    definitionData = { nodes: [], edges: [] };
+  }
+
+  return {
+    id: draft.workflowId || draft.draftId,
+    draftId: draft.draftId,
+    name: draft.name,
+    description: draft.description || '',
+    organizationId: '',
+    createdBy: draft.savedBy || '',
+    status: 'draft' as const,
+    nodes: definitionData?.nodes || [],
+    edges: definitionData?.edges || [],
+    createdAt: new Date(draft.createdAt),
+    updatedAt: new Date(draft.updatedAt),
+  };
+}
 
 // 转换 API 的 WorkflowDefinition 到本地格式
 function mapWorkflowDefinition(wf: WorkflowDefinition): LocalWorkflow {
@@ -19,6 +43,7 @@ function mapWorkflowDefinition(wf: WorkflowDefinition): LocalWorkflow {
 
   return {
     id: wf.workflowId,
+    draftId: wf.draftId,
     name: wf.name,
     description: wf.description,
     organizationId: '', // 需要从 auth store 获取
@@ -48,6 +73,7 @@ function mapWorkflowListItem(wf: WorkflowListItem): LocalWorkflow {
 
   return {
     id: wf.workflowId,
+    draftId: wf.draftId,
     name: wf.name,
     description: wf.description,
     organizationId: '',
@@ -68,6 +94,7 @@ function mapWorkflowListItem(wf: WorkflowListItem): LocalWorkflow {
 // 本地 Workflow 类型
 interface LocalWorkflow {
   id: string;
+  draftId: string;
   name: string;
   description: string;
   organizationId: string;
@@ -192,11 +219,12 @@ export const useWorkflowsStore = defineStore('workflows', () => {
 
   async function saveWorkflowDefinition(
     workflowId: string | null,
+    draftId: string | null,
     name: string,
     description: string,
     definition: WorkflowDefinitionData
-  ): Promise<string> {
-    const request: SaveWorkflowRequest = {
+  ): Promise<{ workflowId: string; draftId: string }> {
+    const request: any = {
       name,
       description,
       definition,
@@ -204,17 +232,21 @@ export const useWorkflowsStore = defineStore('workflows', () => {
     if (workflowId) {
       request.workflowId = workflowId;
     }
+    if (draftId) {
+      request.draftId = draftId;
+    }
 
-    const response = await workflowApi.saveWorkflow(request);
+    // 调用草稿接口
+    const response = await workflowApi.saveWorkflowDraft(request);
     if (response.success) {
-      const saved = mapWorkflowDefinition(response.data);
-      const index = workflows.value.findIndex((w) => w.id === saved.id);
+      const saved = mapWorkflowDraft(response.data);
+      const index = workflows.value.findIndex((w) => w.draftId === saved.draftId);
       if (index !== -1) {
         workflows.value[index] = saved;
       } else {
         workflows.value.push(saved);
       }
-      return saved.id;
+      return { workflowId: saved.id, draftId: saved.draftId };
     }
     throw new Error('Failed to save workflow');
   }

@@ -8,6 +8,10 @@ import type {
   ExecutionPage,
   ExecutionStats,
   PageParams,
+  WorkflowTestExecution,
+  RunWorkflowTestRequest,
+  WorkflowDraft,
+  WorkflowDraftCreateRequest,
 } from '../types/api';
 
 // 工作流定义相关 API
@@ -150,6 +154,35 @@ export const workflowApi = {
   // 统计某个工作流的执行情况
   async getExecutionStats(workflowId: string): Promise<ApiResponse<ExecutionStats>> {
     return api.get<ExecutionStats>(`/workflow-executions/workflow/${workflowId}/stats`);
+  },
+
+  // ========== 草稿管理 ==========
+
+  // 创建或更新草稿
+  async saveWorkflowDraft(data: WorkflowDraftCreateRequest): Promise<ApiResponse<WorkflowDraft>> {
+    return api.post<WorkflowDraft>('/workflow-drafts', data);
+  },
+
+  // ========== 工作流测试 ==========
+
+  // 运行工作流测试
+  async runWorkflowTest(request: RunWorkflowTestRequest): Promise<ApiResponse<WorkflowTestExecution>> {
+    return api.post<WorkflowTestExecution>('/workflow-tests/run', request);
+  },
+
+  // 获取测试执行详情
+  async getTestExecution(testExecutionId: string): Promise<ApiResponse<WorkflowTestExecution>> {
+    return api.get<WorkflowTestExecution>(`/workflow-tests/${testExecutionId}`);
+  },
+
+  // 获取草稿的最新测试执行
+  async getLatestTestExecution(draftId: string): Promise<ApiResponse<WorkflowTestExecution>> {
+    return api.get<WorkflowTestExecution>(`/workflow-tests/draft/${draftId}/latest`);
+  },
+
+  // 清理测试资源
+  async cleanupTestResources(draftId: string): Promise<ApiResponse<null>> {
+    return api.delete<null>(`/workflow-tests/draft/${draftId}/cleanup`);
   },
 };
 

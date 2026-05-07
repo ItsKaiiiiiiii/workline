@@ -16,10 +16,25 @@
           backgroundColor: node.bgColor,
           borderColor: node.color,
         }"
-        :class="{ selected: selectedNodeId === node.id }"
+        :class="{
+          selected: selectedNodeId === node.id,
+          'test-selected': selectedTestNodeId === node.id,
+        }"
         @mousedown="startDrag($event, node)"
-        @click.stop="selectNode(node)"
+        @click.stop="handleNodeClick(node)"
+        @contextmenu.prevent="handleNodeContextMenu($event, node)"
       >
+        <div v-if="getNodeStatus(node.id)" class="node-status-badge" :class="getNodeStatusClass(node.id)">
+          <component :is="getNodeStatusIcon(node.id)" class="w-4 h-4" />
+        </div>
+        <button
+          v-if="!getNodeStatus(node.id) && testStore.draftId"
+          class="node-test-btn"
+          @click.stop="handleTestNode(node.id)"
+          title="从该节点测试"
+        >
+          <Play class="w-3 h-3" />
+        </button>
         <div class="node-content">
           <div class="node-icon" :style="{ color: node.color }">
             <component :is="getIcon(node.icon)" class="w-5 h-5" />
@@ -96,16 +111,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
 import * as Icons from 'lucide-vue-next';
-import { ZoomIn, ZoomOut, Maximize } from 'lucide-vue-next';
+import { ZoomIn, ZoomOut, Maximize, CheckCircle2, XCircle, Clock, Loader2, Play } from 'lucide-vue-next';
 import { useWorkflowStore } from '../../stores/workflow';
 import { useComponentsStore } from '../../stores/components';
+import { useWorkflowTestStore } from '../../stores/workflowTest';
 import { getComponentConfig } from '../../config/componentConfig';
 import type { NodeConfig, NodeData, EdgeData } from '../../types';
 
 const store = useWorkflowStore();
 const componentsStore = useComponentsStore();
+const testStore = useWorkflowTestStore();
 
 const canvasRef = ref<HTMLDivElement>();
 const nodes = ref<(NodeData & { x: number; y: number })[]>([]);
@@ -113,6 +130,82 @@ const edges = ref<EdgeData[]>([]);
 const selectedNodeId = ref<string | null>(null);
 
 const zoom = ref(1);
+
+const emit = defineEmits<{
+  (e: 'runTestFromNode', nodeId: string): void;
+}>();
+
+// 测试相关计算属性
+const nodeStatusMap = computed(() => testStore.nodeStatusMap);
+const selectedTestNodeId = computed(() => testStore.selectedTestNodeId);
+
+function getNodeStatus(nodeId: string) {
+  return nodeStatusMap.value.get(nodeId)?.status;
+}
+
+function getNodeStatusClass(nodeId: string) {
+  const status = getNodeStatus(nodeId);
+  switch (status) {
+    case 'COMPLETED':
+      return 'success';
+    case 'FAILED':
+      return 'error';
+    case 'RUNNING':
+      return 'running';
+    case 'CANCELLED':
+      return 'cancelled';
+    case 'PAUSED':
+      return 'paused';
+    case 'WAITING_RETRY':
+      return 'waiting-retry';
+    case 'SKIPPED':
+      return 'skipped';
+    default:
+      return 'pending';
+  }
+}
+
+function getNodeStatusIcon(nodeId: string) {
+  const status = getNodeStatus(nodeId);
+  switch (status) {
+    case 'COMPLETED':
+      return CheckCircle2;
+    case 'FAILED':
+      return XCircle;
+    case 'RUNNING':
+      return Loader2;
+    case 'CANCELLED':
+      return XCircle;
+    case 'PAUSED':
+      return Clock;
+    case 'WAITING_RETRY':
+      return Clock;
+    case 'SKIPPED':
+      return Clock;
+    default:
+      return Clock;
+  }
+}
+
+function handleNodeClick(node: any) {
+  // 总是选中节点用于编辑
+  selectNode(node);
+  // 如果在测试模式下，同时选中测试节点用于查看测试结果
+  if (testStore.currentTestExecution) {
+    // 如果已经是选中的测试节点，保持选中状态（不要取消）
+    if (selectedTestNodeId.value !== node.id) {
+      testStore.selectTestNode(node.id);
+    }
+  }
+}
+
+function handleNodeContextMenu(_event: MouseEvent, node: any) {
+  emit('runTestFromNode', node.id);
+}
+
+function handleTestNode(nodeId: string) {
+  emit('runTestFromNode', nodeId);
+}
 
 // 与 store 同步
 watch(() => store.nodes, (newNodes) => {
@@ -374,6 +467,130 @@ defineExpose({
 .workflow-node.selected {
   border-color: #3b82f6 !important;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.workflow-node.test-selected {
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.3);
+}
+
+.workflow-node.test-selected.success {
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3);
+}
+
+.workflow-node.test-selected.error {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.3);
+}
+
+.workflow-node.test-selected.cancelled {
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3);
+}
+
+.workflow-node.test-selected.paused,
+.workflow-node.test-selected.waiting-retry,
+.workflow-node.test-selected.skipped {
+  box-shadow: 0 0 0 3px rgba(107, 114, 128, 0.3);
+}
+
+.node-status-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #e5e7eb;
+  z-index: 25;
+}
+
+.node-status-badge.success {
+  background: #dcfce7;
+  border-color: #22c55e;
+  color: #16a34a;
+}
+
+.node-status-badge.error {
+  background: #fee2e2;
+  border-color: #ef4444;
+  color: #dc2626;
+}
+
+.node-status-badge.running {
+  background: #dbeafe;
+  border-color: #3b82f6;
+  color: #2563eb;
+  animation: spin 1s linear infinite;
+}
+
+.node-status-badge.pending {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  color: #6b7280;
+}
+
+.node-status-badge.cancelled {
+  background: #fef3c7;
+  border-color: #f59e0b;
+  color: #d97706;
+}
+
+.node-status-badge.paused {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  color: #6b7280;
+}
+
+.node-status-badge.waiting-retry {
+  background: #dbeafe;
+  border-color: #3b82f6;
+  color: #2563eb;
+}
+
+.node-status-badge.skipped {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  color: #6b7280;
+}
+
+.node-test-btn {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #059669);
+  border: 2px solid #ffffff;
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  transition: all 0.2s;
+  z-index: 25;
+  opacity: 0.6;
+}
+
+.workflow-node:hover .node-test-btn {
+  opacity: 1;
+}
+
+.node-test-btn:hover {
+  transform: scale(1.15);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .node-content {
